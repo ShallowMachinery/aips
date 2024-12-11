@@ -1,24 +1,30 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import Dashboard from './components/Dashboard';
+import Suggestions from './components/Suggestions';
+import StoryEditorPage from './pages/StoryEditorPage';
+import Login from './pages/LoginPage';
+import Register from './pages/RegisterPage';
+import TermsAndConditions from './pages/TermsAndConditions';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+    <Navbar />
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/home" element={<Home />} />
+      <Route path="/stories" element={<Dashboard />} />
+      <Route path="/terms" element={<TermsAndConditions />} />
+      {/* <Route path="/story/view/:id" element={<StoryPage />} /> */}
+      <Route path="/story/edit/:id" element={<StoryEditorPage />} />
+      <Route path="/ai-integration" element={<Suggestions />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+    </Routes>
+  </Router>
   );
 }
 
