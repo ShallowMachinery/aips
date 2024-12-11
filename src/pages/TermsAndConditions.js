@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const TermsAndConditions = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "Terms and Conditions | AIPS";
+}, []);
 
   const handleGoBack = () => {
     navigate(-1); // Navigate back to the previous page

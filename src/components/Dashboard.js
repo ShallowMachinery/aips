@@ -11,6 +11,10 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
+    document.title = "Story Dashboard | AIPS";
+}, []);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);

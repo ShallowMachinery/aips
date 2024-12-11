@@ -22,6 +22,9 @@ const Suggestions = () => {
     return () => unsubscribe(); // Cleanup subscription on unmount
 }, [auth]);
 
+useEffect(() => {
+  document.title = "AI Tools | AIPS";
+}, []);
 
   const fetchAISuggestions = async () => {
     if (!storyText.trim()) {

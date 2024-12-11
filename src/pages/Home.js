@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const Home = () => {
+
+useEffect(() => {
+    document.title = "AIPS: AI-Powered Storytelling";
+}, []);
+
     return (
         <div className="min-h-screen bg-gray-100 mt-10 p-10">
             <header className="bg-blue-600 text-white p-6 rounded-lg shadow-lg">

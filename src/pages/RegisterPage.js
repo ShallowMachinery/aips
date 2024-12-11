@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { registerUser } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
@@ -16,6 +16,10 @@ const Register = () => {
   const [passwordError, setPasswordError] = useState("");
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "Register | AIPS";
+}, []);
 
   const handleRegister = async (e) => {
     e.preventDefault();
