@@ -2,15 +2,15 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, setDoc, deleteDoc, query, where, getAnalytics } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
-// Your Firebase config object (from the Firebase Console)
 const firebaseConfig = {
-  apiKey: "AIzaSyBIcE6P2FPUIJiGXhKjfBGz1zE1SVzto30",
-  authDomain: "aips-a525a.firebaseapp.com",
-  projectId: "aips-a525a",
-  storageBucket: "aips-a525a.firebasestorage.app",
-  messagingSenderId: "757207021934",
-  appId: "1:757207021934:web:f7e49c09630a361722297f",
-  measurementId: "G-EB589HTXMZ"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET
 };
 
 // Initialize Firebase
@@ -216,7 +216,7 @@ export const getAIThreadByStory = async (storyId) => {
     if (storyDoc.threadId) {
 
       return storyDoc.threadId;
-      }
+    }
     else {
       console.log("no thread id")
       return null;
