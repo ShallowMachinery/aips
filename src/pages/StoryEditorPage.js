@@ -81,9 +81,7 @@ const StoryEditorPage = () => {
           setSelectedChapterContent(story.chapters?.[0]?.content || ''); // Set content of the first chapter
           setSelectedChapterTitle(story.chapters?.[0]?.title || ''); // Set title of the first chapter
 
-          useEffect(() => {
             document.title = `Editing ${story.chapters?.[0]?.title} | AIPS`;
-        }, []);
 
           if (!story.threadId) {
             setAiThreadId(null);
