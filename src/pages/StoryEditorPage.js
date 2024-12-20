@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { updateStory, getStoryById, getUserData, createAIThread, addMessageToThread, getAIThreadByStory, deleteThread } from '../firebase';
+import { updateStory, getStoryById, getUserData, createAIThread, addMessageToThread, getAIThreadByStory, deleteThread, getAIThread } from '../firebase';
 import Groq from 'groq-sdk';
 import { FaEdit, FaSave, FaTrash, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -21,8 +21,7 @@ const StoryEditorPage = () => {
     location: '',
   });
   const [chapters, setChapters] = useState([
-    { title: 'Prologue', content: 'This is the prologue.' },
-    { title: 'Chapter 1', content: 'This is chapter 1.' },
+    { title: '', content: '' },
   ]);
   const [selectedChapterContent, setSelectedChapterContent] = useState(chapters[0]?.content || '');
   const [selectedChapterIndex, setSelectedChapterIndex] = useState(0);
@@ -47,25 +46,22 @@ const StoryEditorPage = () => {
   const [error, setError] = useState(null);
   const [aiThreadId, setAiThreadId] = useState(null);
   const [refreshThread, setRefreshThread] = useState(false);
-  const [thread, setThread] = useState(null);
-  const [user, setUser] = useState(null);
   const [includeMainDetails, setIncludeMainDetails] = useState(false);
   const [includeCharacters, setIncludeCharacters] = useState(false);
   const [includeChapters, setIncludeChapters] = useState(false);
+  const [lastLoadedChapterEditing, setLastLoadedChapterEditing] = useState(null);
 
   useEffect(() => {
-    // Get the currently logged-in user
     onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         const userData = await getUserData(currentUser.uid);
-        setUser(userData);
         const authorFullName = `${userData.firstName} ${userData.lastName}`;
         setStoryDetails(prev => ({
           ...prev,
-          author: authorFullName, // Automatically set author to user's full name
+          author: authorFullName,
         }));
       } else {
-        navigate("/login"); // Redirect to login if no user is signed in
+        navigate("/login");
       }
     });
   }, [auth, navigate]);
@@ -73,15 +69,23 @@ const StoryEditorPage = () => {
   useEffect(() => {
     const fetchStory = async () => {
       try {
-        const story = await getStoryById(id); // Fetch the story using the ID from URL
+        const story = await getStoryById(id);
+        console.log(story);
         if (story) {
           setStoryDetails(story);
           setChapters(story.chapters || []);
           setCharacters(story.characters || []);
-          setSelectedChapterContent(story.chapters?.[0]?.content || ''); // Set content of the first chapter
-          setSelectedChapterTitle(story.chapters?.[0]?.title || ''); // Set title of the first chapter
 
-            document.title = `Editing ${story.chapters?.[0]?.title} | AIPS`;
+          if (story.lastLoadedChapterEditing && story.lastLoadedChapterEditing !== undefined) {
+            setLastLoadedChapterEditing(story.lastLoadedChapterEditing);
+            setSelectedChapterIndex(lastLoadedChapterEditing);
+            setSelectedChapterTitle(story.chapters?.[lastLoadedChapterEditing]?.title || '');
+            setSelectedChapterContent(story.chapters?.[lastLoadedChapterEditing]?.content || '');
+          } else {
+            setSelectedChapterContent(story.chapters?.[0]?.content || '');
+            setSelectedChapterTitle(story.chapters?.[0]?.title || '');
+          }
+          document.title = `Editing ${storyDetails.title} | AIPS`;
 
           if (!story.threadId) {
             setAiThreadId(null);
@@ -90,14 +94,27 @@ const StoryEditorPage = () => {
           }
         } else {
           alert('Story not found');
-          navigate('/stories'); // Redirect to dashboard if story doesn't exist
+          navigate('/stories');
         }
       } catch (error) {
         console.error('Error fetching story:', error);
       }
     };
     fetchStory();
-  }, [id, navigate]);
+  }, [id, navigate, storyDetails.title]);
+
+  const saveLastLoadedChapter = (index) => {
+    try {
+      updateStory(id, { lastLoadedChapterEditing: index });
+    } catch (error) {
+      console.error('Error saving last loaded chapter:', error);
+    }
+    return () => {
+      if (selectedChapterIndex !== null) {
+        saveLastLoadedChapter();
+      }
+    };
+  };
 
   // Handle form input change
   const handleInputChange = (e) => {
@@ -158,14 +175,11 @@ const StoryEditorPage = () => {
     setSelectedChapterTitle(chapters[index].title); // Set the title of the clicked chapter
     setSelectedChapterContent(chapters[index].content); // Set the content of the clicked chapter
     setSelectedChapterIndex(index); // Track the selected chapter
+    saveLastLoadedChapter(index);
   };
 
   const handleTitleInputChange = (e) => {
     setEditedChapterTitle(e.target.value);
-  };
-
-  const handleCharacterInputChange = (e) => {
-    setEditedCharacterName(e.target.value);
   };
 
   const saveEditedChapterTitle = (index) => {
@@ -213,13 +227,12 @@ const StoryEditorPage = () => {
     }
     const userConfirmed = window.confirm("Are you sure you want to delete this thread?");
     if (!userConfirmed) return;
-  
+
     try {
-      await deleteThread(threadId, id); // Call to delete the thread in Firebase
+      await deleteThread(threadId, id);
       console.log("Thread successfully deleted.");
-      setAiThreadId(null); // Clear thread ID
-  
-      // Toggle refreshThread to signal re-render
+      setAiThreadId(null);
+
       setRefreshThread((prev) => {
         console.log("Previous refreshThread:", prev);
         return !prev;
@@ -238,7 +251,40 @@ const StoryEditorPage = () => {
     setLoading(true);
     setError(null);
 
+    const userId = auth.currentUser.uid;
+    const existingThreadId = await getAIThreadByStory(id);
+
+    let threadId;
+    if (existingThreadId) {
+      threadId = existingThreadId;
+    } else {
+      threadId = await createAIThread(userId, id);
+    }
+
     let systemMessage = `You are an AI assistant helping with story writing. The user has requested:\n\n"${suggestionQuery}".`;
+
+    if (threadId) {
+      const pastConversationData = await getAIThread(threadId);
+      if (Array.isArray(pastConversationData?.messages)) {
+        const formattedPastConversation = pastConversationData.messages
+          .map(msg => {
+            const truncatedContent = msg.content.length > 1000 ? msg.content.substring(0, 1000) + '...' : msg.content;
+            const isDuplicate = chapters.some(chap => {
+              return (msg.content.includes(chap.title) && msg.content.length >= 0.7 * chap.content.length);
+            });
+            if (!isDuplicate) {
+              return `(${msg.role}): ${truncatedContent}`;
+            }
+          })
+          .filter(Boolean)
+          .join('\n');
+
+        systemMessage += `\n\nHere is the past conversation of the user and AI:\n${formattedPastConversation}`;
+      } else {
+        console.warn('Past conversation data is not in an expected array format.');
+      }
+    }
+
     if (includeMainDetails) {
       systemMessage += `\n\nHere is the story's main title and description:\n"${storyDetails.title}"\n"${storyDetails.description}"`;
     }
@@ -269,16 +315,6 @@ const StoryEditorPage = () => {
 
       const rawSuggestions = response.choices[0]?.message?.content || '';
 
-      const userId = auth.currentUser.uid;
-      const existingThreadId = await getAIThreadByStory(id);
-
-      let threadId;
-      if (existingThreadId) {
-        threadId = existingThreadId;
-      } else {
-        threadId = await createAIThread(userId, id);
-      }
-
       await addMessageToThread(threadId, {
         role: 'user',
         content: suggestionQuery,
@@ -299,7 +335,7 @@ const StoryEditorPage = () => {
       });
 
       setAiThreadId(threadId);
- 
+
       setRefreshThread((prev) => {
         console.log("Previous refreshThread:", prev);
         return !prev;
@@ -331,23 +367,12 @@ const StoryEditorPage = () => {
         chapters, // Include all chapters
         characters, // Include all characters
         updatedAt: new Date(),
+        threadId: aiThreadId,
       };
-
-      await updateStory(id, storyPayload);
-
-      // Reset the form and navigate back to Dashboard
-      setStoryDetails({
-        title: '',
-        description: '',
-        author: '',
-        dateStarted: new Date().toISOString().split('T')[0],
-        genre: '',
-        location: '',
-      });
-      setChapters([{ title: 'Prologue', content: '' }]); // Reset chapters to default
-      setCharacters([]); // Reset characters
-      setSelectedChapterContent('');
-      navigate('/stories'); // Redirect back to Dashboard
+      const saveSuccess = await updateStory(id, storyPayload);
+      if (saveSuccess) {
+        navigate('/stories'); // Redirect back to Dashboard
+      }
     } catch (error) {
       console.error('Error saving story:', error);
       alert('There was an error saving your story. Please try again.');
@@ -360,7 +385,11 @@ const StoryEditorPage = () => {
     <div className="p-6 mt-16 flex">
       {/* Left side: Story Details and Chapters */}
       <div className="w-1/3 p-4 border mr-4" style={{ height: "calc(100vh - 120px)", overflowY: "auto", resize: "horizontal" }}>
-        <h2 className="text-xl font-bold">Story Details</h2>
+        <div className='flex items-center justify-between'>
+          <h2 className="text-xl font-bold">Story Details</h2>
+          <a href='/stories' className='hover:underline text-blue-600'>Go back to your stories</a>
+        </div>
+
         <form>
           <label className="block mt-2">Title</label>
           <input
@@ -517,7 +546,6 @@ const StoryEditorPage = () => {
                         type="text"
                         value={editedCharacterName}
                         onChange={(e) => setEditedCharacterName(e.target.value)}
-                        onBlur={() => saveEditedCharacter(index)} // Save on blur (optional)
                         className="w-full p-2 mb-2 border rounded-md"
                         placeholder="Character Name"
                       />

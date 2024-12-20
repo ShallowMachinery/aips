@@ -98,6 +98,44 @@ export const getUserStories = async (userId) => {
   return stories;
 };
 
+export const getCharactersByStory = async (storyId) => {
+  try {
+    const storyRef = doc(db, "stories", storyId);
+    const storySnap = await getDoc(storyRef);
+    
+    if (storySnap.exists()) {
+      return storySnap.data().characters || [];
+    } else {
+      console.log("No such story!");
+      return [];
+    }
+  } catch (error) {
+    console.error("Error fetching characters:", error);
+    throw new Error("Failed to fetch characters");
+  }
+};
+
+export const getUserStoriesWithCharacters = async (userId) => {
+  try {
+    const userStoriesQuery = query(collection(db, "stories"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(userStoriesQuery);
+    const stories = [];
+    for (const storyDoc of querySnapshot.docs) {
+      const storyData = storyDoc.data();
+      const characters = await getCharactersByStory(storyDoc.id); // Fetch characters for each story
+      stories.push({
+        id: storyDoc.id,
+        ...storyData,
+        characters,
+      });
+    }
+    return stories;
+  } catch (error) {
+    console.error("Error fetching user stories:", error);
+    throw new Error("Failed to fetch user stories");
+  }
+};
+
 export const getStoryById = async (id) => {
   try {
     const docRef = doc(db, "stories", id);

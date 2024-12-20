@@ -51,6 +51,7 @@ useEffect(() => {
                             Create compelling characters and dynamic plots with our AI-driven tools to keep your readers hooked.
                         </p>
                         <Link
+                        // to character library
                             to="/stories"
                             className="inline-block mt-4 text-blue-500 hover:underline"
                         >

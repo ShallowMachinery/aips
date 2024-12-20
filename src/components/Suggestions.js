@@ -12,14 +12,14 @@ const Suggestions = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const auth = getAuth();
-  const [user, setUser] = useState(null); // State for user details
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         setUser(currentUser);
     });
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe();
 }, [auth]);
 
 useEffect(() => {
@@ -39,7 +39,7 @@ useEffect(() => {
         messages: [
           {
             role: 'system',
-            content: `You are a creative assistant. Generate three creative story ideas based on the user's input. Don't include your opening sentences. Format each idea in this structure:
+            content: `You are a creative assistant. Generate three story ideas based on the user's input. Don't include your opening sentences. Format each idea in this structure:
               **Title**
               Description`
           },

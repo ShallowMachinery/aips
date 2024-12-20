@@ -1,40 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getUserStories, addStory, deleteStory } from '../firebase'; // Import Firebase functions
-import { getAuth, onAuthStateChanged } from 'firebase/auth'; // Import Firebase Auth
+import { getUserStories, addStory, deleteStory } from '../firebase';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const Dashboard = () => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const auth = getAuth();
   const [user, setUser] = useState(null);
 
+  const storiesPerPage = 4;
+
   useEffect(() => {
-    document.title = "Story Dashboard | AIPS";
-}, []);
+    document.title = "My Stories | AIPS";
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
       } else {
-        navigate('/login'); // Redirect to login if no user is authenticated
+        navigate('/login');
       }
     });
 
-    return () => unsubscribe(); // Cleanup the observer on component unmount
+    return () => unsubscribe();
   }, [auth, navigate]);
 
-  // Fetch user's stories
   useEffect(() => {
     if (!user) return;
 
     const fetchUserStories = async () => {
       setLoading(true);
       try {
-        const storiesFromFirebase = await getUserStories(user.uid); // Fetch stories for the logged-in user
-        setStories(storiesFromFirebase);
+        const storiesFromFirebase = await getUserStories(user.uid);
+        const sortedStories = storiesFromFirebase.sort((a, b) => {
+          const updatedA = a.updatedAt ? a.updatedAt.seconds : null;
+          const updatedB = b.updatedAt ? b.updatedAt.seconds : null;
+          const createdA = a.createdAt ? a.createdAt.seconds : null;
+          const createdB = b.createdAt ? b.createdAt.seconds : null;
+
+          if (updatedA && updatedB) {
+            return updatedB - updatedA;
+          } else if (updatedA) {
+            return -1;
+          } else if (updatedB) {
+            return 1;
+          } else if (createdA && createdB) {
+            return createdB - createdA;
+          } else if (createdA) {
+            return -1;
+          } else if (createdB) {
+            return 1;
+          }
+          return 0;
+        });
+        setStories(sortedStories);
       } catch (error) {
         console.error('Error fetching user stories:', error);
         alert('Failed to fetch stories. Please try again.');
@@ -46,19 +70,29 @@ const Dashboard = () => {
     fetchUserStories();
   }, [navigate, user]);
 
+  const totalPages = Math.ceil(stories.length / storiesPerPage);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
   const handleCreateNewStory = async () => {
     try {
       const newStory = {
-        title: 'New Story',
-        description: 'Description for new story',
-        chapters: [{ title: 'Prologue', content: '' }],
+        title: '',
+        description: '',
+        chapters: [{ title: 'Chapter', content: '' }],
         characters: [],
-        userId: user.uid, // Associate the story with the logged-in user
+        userId: user.uid,
         createdAt: new Date(),
       };
 
       const savedStory = await addStory(newStory);
-      navigate(`/story/edit/${savedStory.id}`); // Redirect to the edit page
+      navigate(`/story/edit/${savedStory.id}`);
     } catch (error) {
       console.error('Error creating new story:', error);
       alert('Failed to create a new story. Please try again.');
@@ -70,7 +104,7 @@ const Dashboard = () => {
     if (confirmDelete) {
       try {
         await deleteStory(id);
-        setStories(stories.filter((story) => story.id !== id)); // Remove the deleted story from the UI
+        setStories(stories.filter((story) => story.id !== id));
       } catch (error) {
         console.error('Error deleting story:', error);
         alert('Failed to delete the story. Please try again.');
@@ -80,8 +114,16 @@ const Dashboard = () => {
 
   return (
     <div className="p-10 mt-16 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold">Story Dashboard</h1>
-
+      <div className='flex items-center justify-between'>
+        <h1 className="text-2xl font-bold">Story Dashboard</h1>
+        <input
+          type="text"
+          placeholder="Search stories..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="p-2 border rounded-lg w-[50%]"
+        />
+      </div>
       <button
         onClick={handleCreateNewStory}
         className="bg-green-500 text-white p-3 mt-4 w-full rounded-lg"
@@ -90,43 +132,66 @@ const Dashboard = () => {
       </button>
 
       <div className="mt-6">
-        <h2 className="font-bold">Your Stories</h2>
+        <h2 className="font-bold text-xl">Your Stories</h2>
         {loading ? (
           <p>Loading stories...</p>
         ) : stories.length === 0 ? (
           <p>No stories found. Please add a story!</p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 mt-4">
-            {stories.map((story) => (
-              <div
-                key={story.id}
-                className="border p-4 rounded-lg max-h-80 overflow-hidden relative w-full shadow-md"
-              >
-                <h3 className="font-bold">{story.title}</h3>
-                <p className="min-h-[2.5em] line-clamp-2">{story.description}</p>
-
-                <div className="flex justify-between items-center mt-4">
-                  <div className="text-sm text-gray-500">
-                    <p>Created: {new Date(story.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-                    {story.updatedAt && <p>Updated: {new Date(story.updatedAt.seconds * 1000).toLocaleDateString()}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 mt-4 self-center">
+            {stories
+              .filter(story =>
+                story.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                story.description.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              .slice((currentPage - 1) * storiesPerPage, currentPage * storiesPerPage)
+              .map((story) => (
+                <div
+                  key={story.id}
+                  className="border rounded-lg overflow-hidden shadow-lg w-[300px] h-[500px] bg-white flex flex-col"
+                >
+                  {/* Cover Section */}
+                  <div className="h-[60%] bg-gray-200 flex items-center justify-center">
+                    {/* Replace the div below with an <img> tag if you have a cover image */}
+                    <div className="text-gray-500 text-sm select-none">Cover Placeholder</div>
                   </div>
 
-                  <div className="flex space-x-2">
-                    <Link to={`/story/edit/${story.id}`}>
-                      <button className="bg-blue-500 text-white p-3 rounded-lg">Edit</button>
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteStory(story.id)}
-                      className="bg-red-500 text-white p-3 rounded-lg"
-                    >
-                      Delete
-                    </button>
+                  {/* Content Section */}
+                  <div className="h-[40%] p-4 flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-lg line-clamp-2">{story.title}</h3>
+                      <p className=" text-gray-600 line-clamp-3 mt-1">{story.description}</p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex ml-auto gap-2">
+                      <Link to={`/story/edit/${story.id}`}>
+                        <button className="bg-blue-500 text-white px-3 py-3 rounded">Edit</button>
+                      </Link>
+                      <Link to={`/story/read/${story.id}`}>
+                        <button className="bg-orange-500 text-white px-3 py-3 rounded">Read</button>
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteStory(story.id)}
+                        className="bg-red-500 text-white px-3 py-3 rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
+
+        {stories.length > storiesPerPage &&
+          <div className="mt-6 flex justify-between items-center">
+            <button onClick={handlePreviousPage} disabled={currentPage === 1} className={`${currentPage === 1 ? "bg-gray-300" : "bg-blue-400"} transition-colors text-white p-3 rounded-lg`}>Previous</button>
+            <span className="text-sm">Page {currentPage} of {Math.ceil(stories.length / storiesPerPage)}</span>
+            <button onClick={handleNextPage} disabled={currentPage === Math.ceil(stories.length / storiesPerPage)} className={`${currentPage === Math.ceil(stories.length / storiesPerPage) ? "bg-gray-300" : "bg-blue-400"} transition-colors text-white p-3 rounded-lg`}>Next</button>
+          </div>
+        }
+
       </div>
     </div>
   );
