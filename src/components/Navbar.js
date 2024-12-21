@@ -29,7 +29,8 @@ const Navbar = () => {
             <div>
                 <Link to="/" className="mr-4">Home</Link>
                 <Link to="/stories" className="mr-4">My Stories</Link>
-                <Link to="/ai-integration" className="mr-4">AI Tools</Link>
+                <Link to="/library" className="mr-4">Library</Link>
+                <Link to="/ai-integration" className="mr-4">Create with AIPS</Link>
                 {user ? (
                     <button
                         onClick={handleLogout}

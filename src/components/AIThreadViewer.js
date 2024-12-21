@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
+import { FaCopy, FaCheck } from "react-icons/fa";
 import { getAIThread } from "../firebase"; // Import the function
 
 const AIThreadViewer = ({ threadId, refreshThread }) => {
     const [thread, setThread] = useState(null);
     const [loading, setLoading] = useState(true); // Add loading state
     const [error, setError] = useState(null);
+    const [copied, setCopied] = useState(false);
+    const [copyTimeout, setCopyTimeout] = useState(null);
+
     const scrollableDivRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -55,8 +59,15 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
         }
     }, [thread]);
 
+    const handleCopyToClipboard = (content) => {
+        navigator.clipboard.writeText(content);
+        setCopied(true);
+        setCopyTimeout(setTimeout(() => setCopied(false), 10000));
+        return () => clearTimeout(copyTimeout);
+    };
+
     return (
-        <div className="mt-6">
+        <div>
             {loading ? (
                 <p>Loading thread...</p>
             ) : error ? (
@@ -65,7 +76,7 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
                 <>
                     <div
                         ref={scrollableDivRef}
-                        className="overflow-y-auto max-h-[22rem] border p-4 rounded bg-gray-50"
+                        className="overflow-y-auto h-[30rem] border p-4 rounded bg-gray-50"
                     >
                         <ul className="space-y-4">
                             {thread.messages.map((msg, index) => (
@@ -87,9 +98,20 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
                                                     .replace(/\n/g, "<br>"),
                                             }}
                                         ></p>
-                                        <small className={`block mt-1 text-xs ${msg.role === "user" ? "text-gray-100" : "text-gray-600"}`}>
-                                            {new Date(msg.createdAt.seconds * 1000).toLocaleString()}
-                                        </small>
+                                        <div className="flex items-center justify-between">
+                                            <small className={`block mt-1 text-xs ${msg.role === "user" ? "text-gray-100" : "text-gray-600"}`}>
+                                                {new Date(msg.createdAt.seconds * 1000).toLocaleString()}
+                                            </small>
+                                            <button
+                                                className={`${!copied ? "hover:text-gray-800" : ""}`}
+                                                title={`${!copied ? "Copy this to clipboard" : "Copied!"}`}
+                                                onClick={() => handleCopyToClipboard(msg.content)}
+                                                disabled={copied}
+                                            >
+                                                {copied ? <FaCheck /> : <FaCopy />}
+                                            </button>
+                                        </div>
+
                                     </div>
                                 </li>
                             ))}
@@ -97,9 +119,12 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
                     </div>
                 </>
             ) : (
-                <p>Start a thread with AIPS!</p>
-            )}
-        </div>
+                <div className="h-[30rem] flex items-center justify-center">
+                    <p className="text-center text-lg font-bold">Start a thread with AIPS!</p>
+                </div>
+            )
+            }
+        </div >
     );
 };
 

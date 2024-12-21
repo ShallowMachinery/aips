@@ -17,18 +17,18 @@ const Suggestions = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        setUser(currentUser);
+      setUser(currentUser);
     });
     return () => unsubscribe();
-}, [auth]);
+  }, [auth]);
 
-useEffect(() => {
-  document.title = "AI Tools | AIPS";
-}, []);
+  useEffect(() => {
+    document.title = "Create with AIPS! | AIPS";
+  }, []);
 
   const fetchAISuggestions = async () => {
     if (!storyText.trim()) {
-      alert('Please write some text to get AI suggestions.');
+      alert('Please write some text to let AIPS help you here!');
       return;
     }
 
@@ -91,22 +91,22 @@ useEffect(() => {
 
   return (
     <div className="p-10 mt-16">
-      <h1 className="text-2xl font-bold">AI Suggestions</h1>
+      <h1 className="text-2xl font-bold">Create with AIPS!</h1>
       <textarea
         value={storyText}
         onChange={(e) => setStoryText(e.target.value)}
         className="w-full h-40 p-2 border mt-4"
-        placeholder="Start writing your prompt..."
+        placeholder="Start writing your prompt here..."
       ></textarea>
       <button
         onClick={fetchAISuggestions}
         className="bg-blue-500 text-white p-2 mt-4"
         disabled={loading}
       >
-        {loading ? 'Loading...' : 'Get AI Suggestions'}
+        {loading ? 'AIPS is thinking...' : 'Send!'}
       </button>
       <div className="mt-4">
-        <h2 className="font-bold">AI Suggestions:</h2>
+        <h2 className="font-bold">AIPS:</h2>
         {error && <p className="text-red-500">{error}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           {aiSuggestions.map((suggestion, index) => (

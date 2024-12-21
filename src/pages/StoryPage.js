@@ -57,7 +57,14 @@ const StoryPage = () => {
                   className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow"
                 >
                   <h3 className="font-semibold text-gray-800">{character.name}</h3>
-                  <p className="text-gray-600">{character.description}</p>
+                  <p
+                    className="text-gray-600"
+                    dangerouslySetInnerHTML={{
+                      __html: character.description
+                        ? character.description.replace(/\n/g, "<br>")
+                        : "No description provided",
+                    }}
+                  ></p>
                 </li>
               ))}
             </ul>

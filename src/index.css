@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 html {
-  scroll-padding-top: 100px; /* Adjust based on the height of your nav bar */
+  scroll-padding-top: 100px;
   scroll-behavior: smooth;
 }
 

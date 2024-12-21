@@ -148,19 +148,20 @@ const Dashboard = () => {
               .map((story) => (
                 <div
                   key={story.id}
-                  className="border rounded-lg overflow-hidden shadow-lg w-[300px] h-[500px] bg-white flex flex-col"
+                  className="border rounded-lg overflow-hidden shadow-lg w-[300px] h-[200px] bg-white flex flex-col"
                 >
-                  {/* Cover Section */}
+
+                  {/* Cover Section
                   <div className="h-[60%] bg-gray-200 flex items-center justify-center">
-                    {/* Replace the div below with an <img> tag if you have a cover image */}
+                    Replace the div below with an <img> tag if you have a cover image
                     <div className="text-gray-500 text-sm select-none">Cover Placeholder</div>
-                  </div>
+                  </div> */}
 
                   {/* Content Section */}
                   <div className="h-[40%] p-4 flex flex-col justify-between">
                     <div>
                       <h3 className="font-bold text-lg line-clamp-2">{story.title}</h3>
-                      <p className=" text-gray-600 line-clamp-3 mt-1">{story.description}</p>
+                      <p className=" text-gray-600 line-clamp-3 mt-1 mb-2">{story.description}</p>
                     </div>
 
                     {/* Action Buttons */}

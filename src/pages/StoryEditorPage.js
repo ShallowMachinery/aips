@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { updateStory, getStoryById, getUserData, createAIThread, addMessageToThread, getAIThreadByStory, deleteThread, getAIThread } from '../firebase';
 import Groq from 'groq-sdk';
-import { FaEdit, FaSave, FaTrash, FaArrowUp, FaArrowDown } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTrash, FaArrowUp, FaArrowDown, FaComments, FaTimes, FaPaperPlane, FaBars, FaLightbulb, FaArrowLeft, FaInfo } from 'react-icons/fa';
+
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import AIThreadViewer from '../components/AIThreadViewer';
 
@@ -50,6 +51,9 @@ const StoryEditorPage = () => {
   const [includeCharacters, setIncludeCharacters] = useState(false);
   const [includeChapters, setIncludeChapters] = useState(false);
   const [lastLoadedChapterEditing, setLastLoadedChapterEditing] = useState(null);
+  const [isChatVisible, setIsChatVisible] = useState(false);
+  const [isMoreOptionsVisible, setIsMoreOptionsVisible] = useState(false);
+  const moreOptionsRef = useRef(null);
 
   useEffect(() => {
     onAuthStateChanged(auth, async (currentUser) => {
@@ -70,27 +74,22 @@ const StoryEditorPage = () => {
     const fetchStory = async () => {
       try {
         const story = await getStoryById(id);
-        console.log(story);
+        console.log(story); // Debug fetched story
         if (story) {
           setStoryDetails(story);
           setChapters(story.chapters || []);
           setCharacters(story.characters || []);
-
-          if (story.lastLoadedChapterEditing && story.lastLoadedChapterEditing !== undefined) {
-            setLastLoadedChapterEditing(story.lastLoadedChapterEditing);
-            setSelectedChapterIndex(lastLoadedChapterEditing);
-            setSelectedChapterTitle(story.chapters?.[lastLoadedChapterEditing]?.title || '');
-            setSelectedChapterContent(story.chapters?.[lastLoadedChapterEditing]?.content || '');
+          setAiThreadId(story.threadId || null);
+  
+          if (story.lastLoadedChapterEditing !== undefined) {
+            const lastChapterIndex = story.lastLoadedChapterEditing;
+            setLastLoadedChapterEditing(lastChapterIndex);
+            setSelectedChapterIndex(lastChapterIndex);
+            setSelectedChapterTitle(story.chapters?.[lastChapterIndex]?.title || '');
+            setSelectedChapterContent(story.chapters?.[lastChapterIndex]?.content || '');
           } else {
-            setSelectedChapterContent(story.chapters?.[0]?.content || '');
             setSelectedChapterTitle(story.chapters?.[0]?.title || '');
-          }
-          document.title = `Editing ${storyDetails.title} | AIPS`;
-
-          if (!story.threadId) {
-            setAiThreadId(null);
-          } else {
-            setAiThreadId(story.threadId);
+            setSelectedChapterContent(story.chapters?.[0]?.content || '');
           }
         } else {
           alert('Story not found');
@@ -100,8 +99,16 @@ const StoryEditorPage = () => {
         console.error('Error fetching story:', error);
       }
     };
+  
     fetchStory();
-  }, [id, navigate, storyDetails.title]);
+  }, [id, navigate]);
+  
+  useEffect(() => {
+    if (storyDetails.title) {
+      document.title = `Editing ${storyDetails.title} | AIPS`;
+    }
+  }, [storyDetails.title]);
+  
 
   const saveLastLoadedChapter = (index) => {
     try {
@@ -138,20 +145,28 @@ const StoryEditorPage = () => {
   };
 
   const deleteChapter = (index) => {
-    const newChapters = chapters.filter((_, idx) => idx !== index);
-    setChapters(newChapters);
+    if (window.confirm("Are you sure you want to delete this chapter?")) {
+      const newChapters = chapters.filter((_, idx) => idx !== index);
+      setChapters(newChapters);
+    }
   };
 
   // Add a character to the story
   const addCharacter = () => {
-    const newCharacter = { name: 'Character', description: '' };
+    if (characters.some(character => character.name.trim() === '')) {
+      alert('You already have a character with no name. Please provide a name before adding a new character.');
+      return;
+    }
+    const newCharacter = { name: '', description: '' };
     setCharacters([...characters, newCharacter]);
   };
 
   // Delete a character from the story
   const deleteCharacter = (index) => {
-    const newCharacters = characters.filter((_, idx) => idx !== index); // Remove character at the given index
-    setCharacters(newCharacters); // Update the state with the new list of characters
+    if (window.confirm("Are you sure you want to delete this character?")) {
+      const newCharacters = characters.filter((_, idx) => idx !== index); // Remove character at the given index
+      setCharacters(newCharacters); // Update the state with the new list of characters
+    }
   };
 
   const moveChapterUp = (index) => {
@@ -215,8 +230,6 @@ const StoryEditorPage = () => {
   };
 
   const deleteAIThread = async (threadId, id) => {
-    console.log("Thread ID: ", threadId);
-    console.log("Story ID:", id);
     if (!threadId) {
       console.error("No thread ID provided for deletion.");
       return;
@@ -242,6 +255,24 @@ const StoryEditorPage = () => {
     }
   };
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        moreOptionsRef.current &&
+        !moreOptionsRef.current.contains(event.target)
+      ) {
+        setIsMoreOptionsVisible(false); // Hide the dropdown
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+
   const requestAISuggestions = async () => {
     if (!suggestionQuery.trim()) {
       alert('Please enter a query for suggestions.');
@@ -261,7 +292,7 @@ const StoryEditorPage = () => {
       threadId = await createAIThread(userId, id);
     }
 
-    let systemMessage = `You are an AI assistant helping with story writing. The user has requested:\n\n"${suggestionQuery}".`;
+    let systemMessage = `Introduce yourself once as AIPSBot, short for AI-Powered Storytelling Bot (look for the past conversation if you haven't introduced yourself already), you are an AI assistant helping with story writing. The user has requested:\n\n"${suggestionQuery}".`;
 
     if (threadId) {
       const pastConversationData = await getAIThread(threadId);
@@ -286,7 +317,7 @@ const StoryEditorPage = () => {
     }
 
     if (includeMainDetails) {
-      systemMessage += `\n\nHere is the story's main title and description:\n"${storyDetails.title}"\n"${storyDetails.description}"`;
+      systemMessage += `\n\nHere is the story's main details:\nTitle: "${storyDetails.title}"\nDescription: "${storyDetails.description}"\nGenre: ${storyDetails.genre}\nLocation: ${storyDetails.location}`;
     }
     if (includeCharacters && characters?.length > 0) {
       const characterList = characters.map((char) => `- ${char.name}: ${char.description || "No description provided"}`).join('\n');
@@ -364,8 +395,8 @@ const StoryEditorPage = () => {
       // Prepare the story payload
       const storyPayload = {
         ...storyDetails,
-        chapters, // Include all chapters
-        characters, // Include all characters
+        chapters,
+        characters,
         updatedAt: new Date(),
         threadId: aiThreadId,
       };
@@ -384,10 +415,28 @@ const StoryEditorPage = () => {
   return (
     <div className="p-6 mt-16 flex">
       {/* Left side: Story Details and Chapters */}
-      <div className="w-1/3 p-4 border mr-4" style={{ height: "calc(100vh - 120px)", overflowY: "auto", resize: "horizontal" }}>
+      <div className="w-1/4 p-4 border mr-4 min-w-[25%] max-w-[33.3%]" style={{ height: "calc(100vh - 120px)", overflowY: "auto", resize: "horizontal" }}>
         <div className='flex items-center justify-between'>
-          <h2 className="text-xl font-bold">Story Details</h2>
-          <a href='/stories' className='hover:underline text-blue-600'>Go back to your stories</a>
+          <div className="flex gap-3 items-center">
+            <button
+              type="button"
+              className="bg-blue-600 text-white p-2 rounded shadow"
+              onClick={() => navigate('/stories')}
+              title="Go back to stories"
+            >
+              <FaArrowLeft />
+            </button>
+            <h2 className="text-xl font-bold">Story Details</h2>
+          </div>
+          <button
+            type="submit"
+            className={`bg-green-500 text-white p-3 rounded shadow ${savingStory ? "opacity-50 cursor-not-allowed" : ""}`}
+            onClick={handleSaveStory}
+            disabled={savingStory}
+            title={savingStory ? "Saving..." : "Save story"}
+          >
+            <FaSave />
+          </button>
         </div>
 
         <form>
@@ -454,7 +503,7 @@ const StoryEditorPage = () => {
             <div className="mt-4">
               <h3 className="text-lg font-semibold">Chapters</h3>
               {chapters.map((chapter, index) => (
-                <div key={index} className="mt-2 p-2 border rounded-md flex justify-between items-center" style={{ cursor: "pointer" }} onClick={() => handleChapterClick(index)}>
+                <div key={index} className="mt-2 pl-2 border rounded-md flex justify-between items-center" style={{ cursor: "pointer" }} onClick={() => handleChapterClick(index)}>
                   {/* Chapter Title (Editable or Read-Only) */}
                   {editingChapterIndex === index ? (
                     <input
@@ -462,63 +511,67 @@ const StoryEditorPage = () => {
                       value={editedChapterTitle}
                       onChange={handleTitleInputChange}
                       onBlur={() => saveEditedChapterTitle(index)} // Save on blur (when focus leaves the input)
-                      className="w-full p-2 border rounded-md"
+                      className="w-full p-2 mr-2 border rounded-md"
                       placeholder="Chapter Title"
                     />
                   ) : (
-                    <h4 className="font-bold">{chapter.title}</h4>
+                    <h4 className="font-bold py-2">{chapter.title}</h4>
                   )}
 
                   {/* Buttons: Edit Chapter Title and Delete Chapter */}
-                  <div className="flex space-x-2">
+                  <div className="flex items-end flex-col gap-2 pl-4 bg-slate-50 p-4">
                     {/* Move Up Button */}
-                    {index > 0 && (
-                      <button
-                        onClick={() => moveChapterUp(index)}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <FaArrowUp /> {/* Up Icon */}
-                      </button>
-                    )}
+                    <div className="flex gap-2">
+                      {index > 0 && (
+                        <button
+                          onClick={() => moveChapterUp(index)}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <FaArrowUp /> {/* Up Icon */}
+                        </button>
+                      )}
 
-                    {/* Move Down Button */}
-                    {index < chapters.length - 1 && (
-                      <button
-                        onClick={() => moveChapterDown(index)}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <FaArrowDown /> {/* Down Icon */}
-                      </button>
-                    )}
+                      {/* Move Down Button */}
+                      {index < chapters.length - 1 && (
+                        <button
+                          onClick={() => moveChapterDown(index)}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <FaArrowDown /> {/* Down Icon */}
+                        </button>
+                      )}
+                    </div>
 
-                    {editingChapterIndex === index ? (
-                      <button
-                        onClick={() => {
-                          saveEditedChapterTitle(index); // Save the edited title
-                        }}
-                        className="text-green-500 hover:text-green-700"
-                      >
-                        <FaSave /> {/* Save Icon */}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setEditingChapterIndex(index); // Set the chapter index to start editing
-                          setEditedChapterTitle(chapter.title); // Set the initial value to the chapter's current title
-                        }}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <FaEdit /> {/* Edit Icon */}
-                      </button>
-                    )}
+                    <div className="flex gap-2">
+                      {editingChapterIndex === index ? (
+                        <button
+                          onClick={() => {
+                            saveEditedChapterTitle(index); // Save the edited title
+                          }}
+                          className="text-green-500 hover:text-green-700"
+                        >
+                          <FaSave /> {/* Save Icon */}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingChapterIndex(index); // Set the chapter index to start editing
+                            setEditedChapterTitle(chapter.title); // Set the initial value to the chapter's current title
+                          }}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <FaEdit /> {/* Edit Icon */}
+                        </button>
+                      )}
 
-                    {/* Delete Chapter Button */}
-                    <button
-                      onClick={() => deleteChapter(index)} // Pass index to deleteChapter function
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <FaTrash /> {/* Trash Icon */}
-                    </button>
+                      {/* Delete Chapter Button */}
+                      <button
+                        onClick={() => deleteChapter(index)} // Pass index to deleteChapter function
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <FaTrash /> {/* Trash Icon */}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -553,15 +606,22 @@ const StoryEditorPage = () => {
                       <textarea
                         value={editedCharacterDescription}
                         onChange={(e) => setEditedCharacterDescription(e.target.value)}
-                        className="w-full p-2 border rounded-md"
+                        className="w-full p-2 border rounded-md max-h-48"
                         placeholder="Character Description"
                       />
                     </>
                   ) : (
                     <>
                       {/* Display Character Info */}
-                      <h4 className="font-bold">{character.name}</h4>
-                      <p className="text-gray-600">{character.description || 'No description provided'}</p>
+                      <h4 className="font-bold">{character.name === '' ? "New Character" : character.name}</h4>
+                      <p
+                        className="text-gray-600"
+                        dangerouslySetInnerHTML={{
+                          __html: character.description
+                            ? character.description.replace(/\n/g, "<br>")
+                            : "No description provided",
+                        }}
+                      ></p>
                     </>
                   )}
                   <div className="flex justify-end space-x-2 mt-2">
@@ -602,85 +662,134 @@ const StoryEditorPage = () => {
             </div>
           )}
         </div>
-
-        <button
-          type="submit"
-          className="bg-blue-500 text-white p-2 mt-4 w-full"
-          onClick={handleSaveStory}
-          disabled={savingStory}
-        >
-          {savingStory ? 'Saving...' : 'Save Story'}
-        </button>
       </div>
 
-      <div className="w-2/6 p-4 border" style={{ resize: "horizontal" }}>
-        <h2 className="text-xl font-bold">{selectedChapterTitle}</h2> {/* Dynamically update h2 title */}
+      <div className="w-[calc(100%-33.3%)] p-4 border" style={{ resize: "horizontal" }}>
+        <h2 className="text-xl font-bold">{selectedChapterTitle}</h2>
         <textarea
           value={selectedChapterContent}
           onChange={handleChapterContentChange}
-          className="w-full h-96 p-2 mt-1 border"
+          className="w-full h-96 p-2 mt-1 border resize-none"
           placeholder="Write your story here..."
           style={{ height: "calc(100vh - 200px)", overflowY: "auto" }}
         />
       </div>
 
-      <div className="w-1/3 p-4 border ml-4" style={{ height: "calc(100vh - 120px)", overflowY: "auto", resize: "horizontal" }}>
-        <div className="flex">
-          <h2 className="text-xl font-bold ml-0">Chat with AIPS</h2>
-          {aiThreadId != null && <button
-            onClick={() => deleteAIThread(aiThreadId, id)}
-            className="text-red-500 hover:text-red-700 ml-auto"
-          >
-            Delete Thread
-          </button>}
-        </div>
-        <AIThreadViewer threadId={aiThreadId} refreshThread={refreshThread} />
-        {/* User Query Input for AI Suggestions */}
-        <div className="mt-4 relative">
-          <textarea
-            value={suggestionQuery}
-            onChange={handleQueryChange}
-            className="w-full p-2 border mb-4 min-h-24"
-            placeholder="Ask me for help! (e.g., plot ideas, character names)"
-          />
-          <button
-            onClick={requestAISuggestions}
-            className={`absolute bottom-2 right-2 bg-blue-500 text-white px-4 py-2 rounded ${loading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            disabled={loading}
-          >
-            {loading ? 'AIPS is thinking...' : 'Send'}
-          </button>
-          {/* Collapsible section for "Add story details" */}
-          <div>
-            <div className="flex items-center mb-2">
-              <input
-                type="checkbox"
-                id="include-main-details"
-                className="mr-2"
-                checked={includeMainDetails}
-                onChange={handleCheckboxChange(setIncludeMainDetails)}
+      {/* Circular Button to Toggle Chat */}
+      <button
+        onClick={() => setIsChatVisible(!isChatVisible)}
+        className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full p-5 shadow-lg hover:bg-blue-600 transition ease-in-out text-3xl"
+        style={{ zIndex: 1000 }}
+        title="Chat with AIPSBot!"
+      >
+        <FaComments />
+      </button>
+
+
+      {isChatVisible &&
+        (
+          <div
+            id="chat-with-aipsbot"
+            className="w-1/3 border ml-4 fixed bottom-0 right-24 bg-white rounded-lg shadow-lg flex flex-col"
+            style={{ height: "calc(100vh - 4.3rem)", overflowY: "auto", zIndex: 999 }}>
+            <div className="flex justify-between items-center bg-blue-600 text-white px-4 py-2 rounded-t-lg">
+              <h2 className="text-lg font-bold">Chat with AIPSBot</h2>
+              <div className="flex items-center gap-2">
+                {aiThreadId != null && <button
+                  onClick={() => deleteAIThread(aiThreadId, id)}
+                  className="text-white ml-auto bg-red-500 hover:bg-red-700 px-2 py-2 rounded"
+                  title="Delete thread"
+                >
+                  <FaTrash />
+                </button>}
+                <button
+                  onClick={() => setIsChatVisible(false)}
+                  className="text-white hover:text-gray-300"
+                >
+                  <FaTimes size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-0 bg-gray-100">
+              <AIThreadViewer threadId={aiThreadId} refreshThread={refreshThread} />
+            </div>
+
+            {/* User Query Input for AI Suggestions */}
+            <div className="relative">
+              <textarea
+                value={suggestionQuery}
+                onChange={handleQueryChange}
+                className="w-[86%] resize-none p-4 min-h-28 focus:outline-none flex-1"
+                placeholder="Ask me for help! (e.g., plot ideas, character names)"
               />
-              <label htmlFor="include-main-details">Include main story details (title and description)</label>
-            </div>
-            <div className="flex items-center mb-2">
-              <input type="checkbox" id="include-characters" className="mr-2"
-                checked={includeCharacters}
-                onChange={handleCheckboxChange(setIncludeCharacters)} />
-              <label htmlFor="include-characters">Include current characters</label>
-            </div>
-            <div className="flex items-center mb-2">
-              <input type="checkbox" id="include-chapters" className="mr-2"
-                checked={includeChapters}
-                onChange={handleCheckboxChange(setIncludeChapters)} />
-              <label htmlFor="include-chapters">Look back to previous chapters</label>
+              <div className='absolute bottom-2 right-2 flex gap-2 flex-col'>
+                <button
+                  onClick={() => setIsMoreOptionsVisible(!isMoreOptionsVisible)}
+                  className={`bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2`}>
+                  <FaBars />
+                </button>
+                <button
+                  onClick={requestAISuggestions}
+                  className={`bg-blue-500 text-white px-4 py-2 rounded mr-2 mb-2 ${loading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  disabled={loading}
+                  title={loading ? 'AIPSBot is thinking...' : ''}
+                >
+                  {loading ? <FaLightbulb /> : <FaPaperPlane />}
+                </button>
+              </div>
+
+              {/* Error Display */}
+              {error && <p className="text-red-500 mt-2">{error}</p>}
             </div>
           </div>
+        )
+      }
 
-          {/* Error Display */}
-          {error && <p className="text-red-500 mt-2">{error}</p>}
+      {isMoreOptionsVisible && (
+        <div
+          className="p-4 fixed bottom-4 right-44 bg-slate-100 rounded-lg shadow-lg"
+          style={{ zIndex: 1000 }}
+          ref={moreOptionsRef}>
+          <p className='mb-2 italic'>Hint: Hover on the info icon to know more.</p>
+          <div className="flex items-center mb-2">
+            <input
+              type="checkbox"
+              id="include-main-details"
+              className="mr-2"
+              checked={includeMainDetails}
+              onChange={handleCheckboxChange(setIncludeMainDetails)}
+            />
+            <label htmlFor="include-main-details">Include main story details</label>
+            <FaInfo
+              className='text-lg ml-1 rounded-full bg-slate-300 p-[3px]'
+              title="Includes main story details like the title. description, setting, and genre to the prompt"
+            />
+          </div>
+          <div className="flex items-center mb-2">
+            <input type="checkbox" id="include-characters" className="mr-2"
+              checked={includeCharacters}
+              onChange={handleCheckboxChange(setIncludeCharacters)} />
+            <label htmlFor="include-characters">Include current characters</label>
+            <FaInfo
+              className='text-lg ml-1 rounded-full bg-slate-300 p-[3px]'
+              title="Includes the current characters (if you listed them in the characters section) to the prompt"
+            />
+          </div>
+          <div className="flex items-center">
+            <input type="checkbox" id="include-chapters" className="mr-2"
+              checked={includeChapters}
+              onChange={handleCheckboxChange(setIncludeChapters)} />
+            <label htmlFor="include-chapters">Look back to previous chapters</label>
+            <FaInfo
+              className='text-lg ml-1 rounded-full bg-slate-300 p-[3px]'
+              title="Includes all the previous chapters to the prompt"
+            />
+          </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 };
