@@ -76,13 +76,13 @@ const Suggestions = () => {
         title: suggestion.title,
         description: suggestion.description,
         chapters: [{ title: 'Prologue', content: '' }],
-        characters: [], // Empty characters list initially
-        userId: user.uid, // Associate the story with the logged-in user
+        characters: [],
+        userId: user.uid,
         createdAt: new Date(),
       };
 
       const savedStory = await addStory(newStory);
-      navigate(`/story/edit/${savedStory.id}`); // Redirect to the edit page for the new story
+      navigate(`/story/edit/${savedStory.id}`);
     } catch (error) {
       console.error('Error creating new story:', error);
       alert('Failed to create a new story. Please try again.');

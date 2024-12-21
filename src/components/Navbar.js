@@ -11,7 +11,7 @@ const Navbar = () => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
         });
-        return () => unsubscribe(); // Cleanup subscription on unmount
+        return () => unsubscribe();
     }, [auth]);
 
     const handleLogout = async () => {
@@ -27,10 +27,10 @@ const Navbar = () => {
         <nav className="bg-blue-600 text-white p-4 flex justify-between fixed w-full top-0 z-10">
             <div className="flex items-center text-xl font-bold">AI-Powered Storytelling</div>
             <div>
-                <Link to="/" className="mr-4">Home</Link>
-                <Link to="/stories" className="mr-4">My Stories</Link>
-                <Link to="/library" className="mr-4">Library</Link>
-                <Link to="/ai-integration" className="mr-4">Create with AIPS</Link>
+                <Link to="/" className="mr-4">Home</Link>|
+                <Link to="/stories" className="mr-4 ml-4">My Stories</Link>|
+                <Link to="/library" className="mr-4 ml-4">Character Library</Link>|
+                <Link to="/ai-integration" className="mr-4 ml-4">Create with AIPS</Link>
                 {user ? (
                     <button
                         onClick={handleLogout}

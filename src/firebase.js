@@ -19,11 +19,8 @@ const auth = getAuth(app);
 
 export const registerUser = async (email, password, firstName, lastName, username, dateOfBirth, phoneNumber, bio) => {
   try {
-    // Create user in Firebase Authentication
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-
-    // Prepare user details for Firestore
     const userProfile = {
       firstName,
       lastName,
@@ -35,7 +32,6 @@ export const registerUser = async (email, password, firstName, lastName, usernam
       createdAt: new Date()
     };
 
-    // Save user profile to Firestore under "users" collection
     await setDoc(doc(db, "users", user.uid), userProfile);
 
     return user;
@@ -78,10 +74,10 @@ export const addStory = async (storyData) => {
 
     const docRef = await addDoc(collection(db, "stories"), {
       ...storyData,
-      userId: user.uid, // Include the userId of the logged-in user
+      userId: user.uid,
     });
 
-    return { id: docRef.id, ...storyData, userId: user.uid }; // Return consistent data
+    return { id: docRef.id, ...storyData, userId: user.uid };
   } catch (e) {
     console.error("Error adding story:", e);
     throw new Error("Failed to add story");
@@ -106,7 +102,6 @@ export const getCharactersByStory = async (storyId) => {
     if (storySnap.exists()) {
       return storySnap.data().characters || [];
     } else {
-      console.log("No such story!");
       return [];
     }
   } catch (error) {
@@ -122,7 +117,7 @@ export const getUserStoriesWithCharacters = async (userId) => {
     const stories = [];
     for (const storyDoc of querySnapshot.docs) {
       const storyData = storyDoc.data();
-      const characters = await getCharactersByStory(storyDoc.id); // Fetch characters for each story
+      const characters = await getCharactersByStory(storyDoc.id);
       stories.push({
         id: storyDoc.id,
         ...storyData,
@@ -144,7 +139,6 @@ export const getStoryById = async (id) => {
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() };
     } else {
-      console.log("No such document!");
       return null;
     }
   } catch (e) {
@@ -157,7 +151,6 @@ export const updateStory = async (id, storyData) => {
   try {
     const docRef = doc(db, "stories", id);
     await updateDoc(docRef, storyData);
-    console.log("Story updated:", id);
   } catch (e) {
     console.error("Error updating story:", e);
     throw new Error("Failed to update story");
@@ -168,7 +161,6 @@ export const deleteStory = async (id) => {
   try {
     const docRef = doc(db, "stories", id);
     await deleteDoc(docRef);
-    console.log("Story deleted:", id);
   } catch (e) {
     console.error("Error deleting story:", e);
     throw new Error("Failed to delete story");
@@ -181,7 +173,6 @@ export const getUserData = async (userId) => {
     if (userDoc.exists()) {
       return userDoc.data();
     } else {
-      console.log("No such user!");
       return null;
     }
   } catch (error) {
@@ -255,7 +246,6 @@ export const getAIThreadByStory = async (storyId) => {
       return storyDoc.threadId;
     }
     else {
-      console.log("no thread id")
       return null;
     }
   } catch (error) {
@@ -267,7 +257,6 @@ export const getAIThreadByStory = async (storyId) => {
 
 export const getAIThread = async (threadId) => {
   if (!threadId) {
-    console.log("No thread ID")
     return null;
   }
 
@@ -289,7 +278,6 @@ export const deleteThread = async (threadId, storyId) => {
     const threadRef = doc(db, "threads", threadId);
     await deleteDoc(threadRef);
     await updateDoc(doc(db, "stories", storyId), { threadId: null });
-    console.log("Thread and reference in story deleted successfully.");
   } catch (e) {
     console.error("Error deleting thread:", e);
     throw new Error("Failed to delete thread");

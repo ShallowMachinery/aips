@@ -30,14 +30,13 @@ const CharacterLibrary = () => {
     }, [auth, navigate]);
 
     useEffect(() => {
-        document.title = "Library | AIPS";
+        document.title = "Character Library | AIPS";
         if (!userId) return;
 
         const fetchStories = async () => {
             setLoading(true);
             try {
                 const fetchedStories = await getUserStoriesWithCharacters(userId);
-                console.log(fetchedStories);
                 setStories(fetchedStories);
                 setLoading(false);
             } catch (error) {
@@ -65,7 +64,6 @@ const CharacterLibrary = () => {
     };
 
     const onGenerateCharacter = async (story, storyId) => {
-        console.log(story);
         const characterForm = formState[storyId] || { name: "", description: "" };
         if (!characterForm.name.trim() && !characterForm.description.trim()) {
             alert("Please provide a name or partial description to get AI suggestions.");
@@ -93,7 +91,6 @@ const CharacterLibrary = () => {
             });
 
             const rawCharacterData = response.choices[0]?.message?.content || "";
-            console.log(rawCharacterData);
 
             const match = rawCharacterData.match(
                 /\*\*Name:\*\*\s*([\s\S]+?)\n\*\*Gender:\*\*\s*([\s\S]+?)\n\*\*Description:\*\*\s*([\s\S]+)/
@@ -143,7 +140,6 @@ const CharacterLibrary = () => {
                 ...prevFormState,
                 [storyId]: { name: "", gender: "Male", description: "" },
             }));
-            console.log("Character added and story updated successfully!");
             setUiError("");
         } catch (error) {
             console.error("Failed to add character to story:", error);
@@ -182,7 +178,6 @@ const CharacterLibrary = () => {
                 )
             );
 
-            console.log("Character deleted successfully!");
             alert("Character deleted successfully!");
         } catch (error) {
             console.error("Failed to delete character:", error);

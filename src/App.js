@@ -19,7 +19,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/home" element={<Home />} />
       <Route path="/stories" element={<Dashboard />} />
-      <Route path="/library" element={<Library />} />
+      <Route path="/characterlibrary" element={<Library />} />
       <Route path="/terms" element={<TermsAndConditions />} />
       <Route path="/story/read/:id" element={<StoryPage />} />
       <Route path="/story/edit/:id" element={<StoryEditorPage />} />

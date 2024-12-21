@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import { FaCopy, FaCheck } from "react-icons/fa";
-import { getAIThread } from "../firebase"; // Import the function
+import { getAIThread } from "../firebase";
 
 const AIThreadViewer = ({ threadId, refreshThread }) => {
     const [thread, setThread] = useState(null);
-    const [loading, setLoading] = useState(true); // Add loading state
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [copied, setCopied] = useState(false);
     const [copyTimeout, setCopyTimeout] = useState(null);
@@ -53,7 +53,6 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
     }, [threadId, refreshThread]);
 
     useEffect(() => {
-        // Scroll to bottom whenever thread or messages are updated
         if (thread && thread.messages) {
             scrollToBottom();
         }
@@ -71,7 +70,7 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
             {loading ? (
                 <p>Loading thread...</p>
             ) : error ? (
-                <p className="text-red-500">{error}</p> // Display error if thread doesn't exist
+                <p className="text-red-500">{error}</p>
             ) : thread ? (
                 <>
                     <div
@@ -85,7 +84,6 @@ const AIThreadViewer = ({ threadId, refreshThread }) => {
                                     className={`flex items-start ${msg.role === "user" ? "justify-end" : "justify-start"
                                         }`}
                                 >
-                                    {/* Message Bubble */}
                                     <div
                                         className={`${msg.role === "user" ? "bg-blue-500 text-white" : "bg-gray-300 text-black"
                                             } p-4 rounded-lg max-w-xs shadow`}

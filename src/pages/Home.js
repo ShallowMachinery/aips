@@ -59,31 +59,6 @@ const Home = () => {
                     </div>
                 </div>
             </section>
-
-
-            {/* <section className="mt-12">
-                <h2 className="text-2xl font-bold mb-4 text-gray-800 text-center">Your Stories</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3].map((_, index) => (
-                        <div
-                            key={index}
-                            className="bg-white p-6 rounded-lg shadow-lg relative overflow-hidden"
-                        >
-                            <h3 className="text-lg font-bold text-blue-600 mb-2">Sample Story {index + 1}</h3>
-                            <p className="text-gray-700 truncate">
-                                This is a quick preview of your story's description. You can click below to view more details.
-                            </p>
-                            <Link
-                                to={`/story/edit/sample-id-${index}`}
-                                className="absolute bottom-4 right-4 bg-blue-500 text-white py-2 px-4 rounded-lg text-sm"
-                            >
-                                View Details
-                            </Link>
-                        </div>
-                    ))}
-                </div>
-            </section> */}
-
             <footer className="fixed bottom-0 left-0 w-full bg-gray-200 p-6 shadow-inner">
                 <div className="flex justify-center items-center">
                     <p className="text-center text-gray-600 mr-1">

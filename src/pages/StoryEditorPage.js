@@ -74,7 +74,6 @@ const StoryEditorPage = () => {
     const fetchStory = async () => {
       try {
         const story = await getStoryById(id);
-        console.log(story); // Debug fetched story
         if (story) {
           setStoryDetails(story);
           setChapters(story.chapters || []);
@@ -123,7 +122,6 @@ const StoryEditorPage = () => {
     };
   };
 
-  // Handle form input change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setStoryDetails((prevDetails) => ({
@@ -151,7 +149,6 @@ const StoryEditorPage = () => {
     }
   };
 
-  // Add a character to the story
   const addCharacter = () => {
     if (characters.some(character => character.name.trim() === '')) {
       alert('You already have a character with no name. Please provide a name before adding a new character.');
@@ -161,11 +158,10 @@ const StoryEditorPage = () => {
     setCharacters([...characters, newCharacter]);
   };
 
-  // Delete a character from the story
   const deleteCharacter = (index) => {
     if (window.confirm("Are you sure you want to delete this character?")) {
-      const newCharacters = characters.filter((_, idx) => idx !== index); // Remove character at the given index
-      setCharacters(newCharacters); // Update the state with the new list of characters
+      const newCharacters = characters.filter((_, idx) => idx !== index);
+      setCharacters(newCharacters);
     }
   };
 
@@ -177,7 +173,6 @@ const StoryEditorPage = () => {
     setChapters(updatedChapters);
   };
 
-  // Move a chapter down
   const moveChapterDown = (index) => {
     const updatedChapters = [...chapters];
     const temp = updatedChapters[index];
@@ -187,9 +182,9 @@ const StoryEditorPage = () => {
   };
 
   const handleChapterClick = (index) => {
-    setSelectedChapterTitle(chapters[index].title); // Set the title of the clicked chapter
-    setSelectedChapterContent(chapters[index].content); // Set the content of the clicked chapter
-    setSelectedChapterIndex(index); // Track the selected chapter
+    setSelectedChapterTitle(chapters[index].title);
+    setSelectedChapterContent(chapters[index].content);
+    setSelectedChapterIndex(index);
     saveLastLoadedChapter(index);
   };
 
@@ -199,26 +194,25 @@ const StoryEditorPage = () => {
 
   const saveEditedChapterTitle = (index) => {
     const updatedChapters = [...chapters];
-    updatedChapters[index].title = editedChapterTitle; // Update title for the selected chapter
-    setChapters(updatedChapters); // Save updated chapters
-    setEditingChapterIndex(null); // Stop editing
+    updatedChapters[index].title = editedChapterTitle;
+    setChapters(updatedChapters);
+    setEditingChapterIndex(null);
   };
 
   const handleChapterContentChange = (e) => {
     const updatedContent = e.target.value;
-    setSelectedChapterContent(updatedContent); // Update content in the text area
+    setSelectedChapterContent(updatedContent);
     const updatedChapters = [...chapters];
-    updatedChapters[selectedChapterIndex].content = updatedContent; // Update the selected chapter's content
-    setChapters(updatedChapters); // Update chapters in the state
+    updatedChapters[selectedChapterIndex].content = updatedContent;
+    setChapters(updatedChapters);
   };
 
-  // Save the edited character
   const saveEditedCharacter = (index) => {
     const updatedCharacters = [...characters];
     updatedCharacters[index].name = editedCharacterName;
     updatedCharacters[index].description = editedCharacterDescription;
     setCharacters(updatedCharacters);
-    setEditingCharacterIndex(null); // Stop editing
+    setEditingCharacterIndex(null);
   };
 
   const handleQueryChange = (e) => {
@@ -243,11 +237,9 @@ const StoryEditorPage = () => {
 
     try {
       await deleteThread(threadId, id);
-      console.log("Thread successfully deleted.");
       setAiThreadId(null);
 
       setRefreshThread((prev) => {
-        console.log("Previous refreshThread:", prev);
         return !prev;
       });
     } catch (error) {
@@ -261,7 +253,7 @@ const StoryEditorPage = () => {
         moreOptionsRef.current &&
         !moreOptionsRef.current.contains(event.target)
       ) {
-        setIsMoreOptionsVisible(false); // Hide the dropdown
+        setIsMoreOptionsVisible(false);
       }
     }
 
@@ -329,7 +321,6 @@ const StoryEditorPage = () => {
     }
 
     try {
-      console.log("System message to AI:", systemMessage);
       const response = await groq.chat.completions.create({
         messages: [
           {
@@ -368,7 +359,6 @@ const StoryEditorPage = () => {
       setAiThreadId(threadId);
 
       setRefreshThread((prev) => {
-        console.log("Previous refreshThread:", prev);
         return !prev;
       });
 
@@ -378,11 +368,10 @@ const StoryEditorPage = () => {
       console.error('Error fetching AI suggestions:', err.response || err.message);
       setError('Failed to fetch suggestions. Please try again.');
     } finally {
-      setLoading(false); // Stop loading after the response
+      setLoading(false);
     }
   };
 
-  // Handle form submission
   const handleSaveStory = async (e) => {
     e.preventDefault();
     if (!storyDetails.title || !storyDetails.description || chapters.length === 0) {
@@ -392,7 +381,6 @@ const StoryEditorPage = () => {
     setSavingStory(true);
 
     try {
-      // Prepare the story payload
       const storyPayload = {
         ...storyDetails,
         chapters,
@@ -402,13 +390,13 @@ const StoryEditorPage = () => {
       };
       const saveSuccess = await updateStory(id, storyPayload);
       if (saveSuccess) {
-        navigate('/stories'); // Redirect back to Dashboard
+        navigate('/stories');
       }
     } catch (error) {
       console.error('Error saving story:', error);
       alert('There was an error saving your story. Please try again.');
     } finally {
-      setSavingStory(false); // Hide loading state
+      setSavingStory(false);
     }
   };
 
@@ -470,7 +458,7 @@ const StoryEditorPage = () => {
           <input
             type="date"
             name="dateStarted"
-            value={storyDetails.dateStarted} // Use today's date by default
+            value={storyDetails.dateStarted}
             onChange={handleInputChange}
             className="w-full p-2 mt-1 border"
           />
@@ -504,13 +492,12 @@ const StoryEditorPage = () => {
               <h3 className="text-lg font-semibold">Chapters</h3>
               {chapters.map((chapter, index) => (
                 <div key={index} className="mt-2 pl-2 border rounded-md flex justify-between items-center" style={{ cursor: "pointer" }} onClick={() => handleChapterClick(index)}>
-                  {/* Chapter Title (Editable or Read-Only) */}
                   {editingChapterIndex === index ? (
                     <input
                       type="text"
                       value={editedChapterTitle}
                       onChange={handleTitleInputChange}
-                      onBlur={() => saveEditedChapterTitle(index)} // Save on blur (when focus leaves the input)
+                      onBlur={() => saveEditedChapterTitle(index)}
                       className="w-full p-2 mr-2 border rounded-md"
                       placeholder="Chapter Title"
                     />
@@ -518,26 +505,23 @@ const StoryEditorPage = () => {
                     <h4 className="font-bold py-2">{chapter.title}</h4>
                   )}
 
-                  {/* Buttons: Edit Chapter Title and Delete Chapter */}
                   <div className="flex items-end flex-col gap-2 pl-4 bg-slate-50 p-4">
-                    {/* Move Up Button */}
                     <div className="flex gap-2">
                       {index > 0 && (
                         <button
                           onClick={() => moveChapterUp(index)}
                           className="text-blue-500 hover:text-blue-700"
                         >
-                          <FaArrowUp /> {/* Up Icon */}
+                          <FaArrowUp />
                         </button>
                       )}
 
-                      {/* Move Down Button */}
                       {index < chapters.length - 1 && (
                         <button
                           onClick={() => moveChapterDown(index)}
                           className="text-blue-500 hover:text-blue-700"
                         >
-                          <FaArrowDown /> {/* Down Icon */}
+                          <FaArrowDown />
                         </button>
                       )}
                     </div>
@@ -546,30 +530,29 @@ const StoryEditorPage = () => {
                       {editingChapterIndex === index ? (
                         <button
                           onClick={() => {
-                            saveEditedChapterTitle(index); // Save the edited title
+                            saveEditedChapterTitle(index);
                           }}
                           className="text-green-500 hover:text-green-700"
                         >
-                          <FaSave /> {/* Save Icon */}
+                          <FaSave />
                         </button>
                       ) : (
                         <button
                           onClick={() => {
-                            setEditingChapterIndex(index); // Set the chapter index to start editing
-                            setEditedChapterTitle(chapter.title); // Set the initial value to the chapter's current title
+                            setEditingChapterIndex(index);
+                            setEditedChapterTitle(chapter.title);
                           }}
                           className="text-blue-500 hover:text-blue-700"
                         >
-                          <FaEdit /> {/* Edit Icon */}
+                          <FaEdit />
                         </button>
                       )}
 
-                      {/* Delete Chapter Button */}
                       <button
-                        onClick={() => deleteChapter(index)} // Pass index to deleteChapter function
+                        onClick={() => deleteChapter(index)}
                         className="text-red-500 hover:text-red-700"
                       >
-                        <FaTrash /> {/* Trash Icon */}
+                        <FaTrash />
                       </button>
                     </div>
                   </div>
@@ -594,7 +577,6 @@ const StoryEditorPage = () => {
                 <div key={index} className="mt-2 p-2 border rounded-md">
                   {editingCharacterIndex === index ? (
                     <>
-                      {/* Editable Name */}
                       <input
                         type="text"
                         value={editedCharacterName}
@@ -602,7 +584,6 @@ const StoryEditorPage = () => {
                         className="w-full p-2 mb-2 border rounded-md"
                         placeholder="Character Name"
                       />
-                      {/* Editable Description */}
                       <textarea
                         value={editedCharacterDescription}
                         onChange={(e) => setEditedCharacterDescription(e.target.value)}
@@ -612,7 +593,6 @@ const StoryEditorPage = () => {
                     </>
                   ) : (
                     <>
-                      {/* Display Character Info */}
                       <h4 className="font-bold">{character.name === '' ? "New Character" : character.name}</h4>
                       <p
                         className="text-gray-600"
@@ -637,7 +617,7 @@ const StoryEditorPage = () => {
                         onClick={() => {
                           setEditingCharacterIndex(index);
                           setEditedCharacterName(character.name);
-                          setEditedCharacterDescription(character.description || ''); // Set initial description
+                          setEditedCharacterDescription(character.description || '');
                         }}
                         className="text-blue-500 hover:text-blue-700"
                       >
@@ -675,7 +655,6 @@ const StoryEditorPage = () => {
         />
       </div>
 
-      {/* Circular Button to Toggle Chat */}
       <button
         onClick={() => setIsChatVisible(!isChatVisible)}
         className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full p-5 shadow-lg hover:bg-blue-600 transition ease-in-out text-3xl"
@@ -684,7 +663,6 @@ const StoryEditorPage = () => {
       >
         <FaComments />
       </button>
-
 
       {isChatVisible &&
         (

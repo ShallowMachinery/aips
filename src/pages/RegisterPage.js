@@ -46,7 +46,7 @@ const Register = () => {
 
 const handlePasswordChange = (e) => {
   const value = e.target.value;
-  const regex = /^.{8,}$/; // Regex for at least 8 characters
+  const regex = /^.{8,}$/;
 
   setPassword(value);
 
@@ -61,7 +61,7 @@ const handlePasswordChange = (e) => {
 
   const handleUsernameChange = (e) => {
     const value = e.target.value;
-    if (usernameRegex.test(value) || value === '') { // Allow empty input if it matches the regex
+    if (usernameRegex.test(value) || value === '') {
       setUsername(value);
     }
   };
