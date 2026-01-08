@@ -39,16 +39,16 @@ const Suggestions = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a creative assistant. Generate three story ideas based on the user's input. Don't include your opening sentences. Format each idea in this structure:
-              **Title**
-              Description`
+            content: `You are a creative assistant. Generate three story ideas based on the user's input. Don't include your opening sentences. Format each idea in this structure, AVOID THE FORMATTING BRACKETS:
+              [[Title]]
+              [[Description]]`
           },
           {
             role: 'user',
             content: `${storyText}`
           },
         ],
-        model: 'llama3-8b-8192',
+        model: 'openai/gpt-oss-120b',
       });
 
       const rawSuggestions = response.choices[0]?.message?.content || '';
