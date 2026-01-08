@@ -332,7 +332,7 @@ const StoryEditorPage = () => {
             content: suggestionQuery,
           },
         ],
-        model: 'llama3-8b-8192',
+        model: 'openai/gpt-oss-120b',
       });
 
       const rawSuggestions = response.choices[0]?.message?.content || '';
