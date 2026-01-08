@@ -39,9 +39,9 @@ const Suggestions = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a creative assistant. Generate three story ideas based on the user's input. Don't include your opening sentences. Format each idea in this structure, AVOID THE FORMATTING BRACKETS:
-              [[Title]]
-              [[Description]]`
+            content: `You are a creative assistant. Generate three story ideas based on the user's input. Don't include your opening sentences. Format each idea in this structure, AVOID THE FORMATTING ASTERISKS:
+              **Title**
+              Description`
           },
           {
             role: 'user',
