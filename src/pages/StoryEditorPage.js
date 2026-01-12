@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { updateStory, getStoryById, getUserData, createAIThread, addMessageToThread, getAIThreadByStory, deleteThread, getAIThread } from '../firebase';
 import Groq from 'groq-sdk';
-import { FaEdit, FaSave, FaTrash, FaArrowUp, FaArrowDown, FaComments, FaTimes, FaPaperPlane, FaBars, FaLightbulb, FaArrowLeft, FaInfo } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTrash, FaArrowUp, FaArrowDown, FaComments, FaTimes, FaPaperPlane, FaBars, FaLightbulb, FaArrowLeft, FaInfo, FaCog, FaBold, FaItalic, FaUnderline } from 'react-icons/fa';
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import AIThreadViewer from '../components/AIThreadViewer';
@@ -20,6 +20,7 @@ const StoryEditorPage = () => {
     dateStarted: new Date().toISOString().split('T')[0],
     genre: '',
     location: '',
+    isPublic: false,
   });
   const [chapters, setChapters] = useState([
     { title: '', content: '' },
@@ -53,17 +54,36 @@ const StoryEditorPage = () => {
   const [lastLoadedChapterEditing, setLastLoadedChapterEditing] = useState(null);
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [isMoreOptionsVisible, setIsMoreOptionsVisible] = useState(false);
+  const [isStoryOptionsVisible, setIsStoryOptionsVisible] = useState(false);
+  const [fontFamily, setFontFamily] = useState('sans-serif');
   const moreOptionsRef = useRef(null);
+  const storyOptionsRef = useRef(null);
+  const editorRef = useRef(null);
 
   useEffect(() => {
     onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         const userData = await getUserData(currentUser.uid);
-        const authorFullName = `${userData.firstName} ${userData.lastName}`;
-        setStoryDetails(prev => ({
-          ...prev,
-          author: authorFullName,
-        }));
+        let authorName = currentUser.email || 'Unknown Author';
+        if (userData && userData.firstName && userData.lastName) {
+          authorName = `${userData.firstName} ${userData.lastName}`;
+        }
+        
+        // Only update author if it's empty, undefined, or is an email address
+        setStoryDetails(prev => {
+          const currentAuthor = prev.author || '';
+          const isEmail = currentAuthor.includes('@') && currentAuthor.includes('.');
+          const isEmpty = !currentAuthor || currentAuthor.trim() === '';
+          
+          // Update if empty or if it's an email (meaning it wasn't properly set)
+          if (isEmpty || isEmail) {
+            return {
+              ...prev,
+              author: authorName,
+            };
+          }
+          return prev;
+        });
       } else {
         navigate("/login");
       }
@@ -75,6 +95,25 @@ const StoryEditorPage = () => {
       try {
         const story = await getStoryById(id);
         if (story) {
+          // Check if author is missing or is an email, and update it
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const userData = await getUserData(currentUser.uid);
+            let authorName = currentUser.email || 'Unknown Author';
+            if (userData && userData.firstName && userData.lastName) {
+              authorName = `${userData.firstName} ${userData.lastName}`;
+            }
+            
+            const currentAuthor = story.author || '';
+            const isEmail = currentAuthor.includes('@') && currentAuthor.includes('.');
+            const isEmpty = !currentAuthor || currentAuthor.trim() === '';
+            
+            // Update story author if needed
+            if (isEmpty || isEmail) {
+              story.author = authorName;
+            }
+          }
+          
           setStoryDetails(story);
           setChapters(story.chapters || []);
           setCharacters(story.characters || []);
@@ -86,9 +125,20 @@ const StoryEditorPage = () => {
             setSelectedChapterIndex(lastChapterIndex);
             setSelectedChapterTitle(story.chapters?.[lastChapterIndex]?.title || '');
             setSelectedChapterContent(story.chapters?.[lastChapterIndex]?.content || '');
+            // Set editor content after a brief delay to ensure ref is ready
+            setTimeout(() => {
+              if (editorRef.current) {
+                editorRef.current.innerHTML = story.chapters?.[lastChapterIndex]?.content || '';
+              }
+            }, 100);
           } else {
             setSelectedChapterTitle(story.chapters?.[0]?.title || '');
             setSelectedChapterContent(story.chapters?.[0]?.content || '');
+            setTimeout(() => {
+              if (editorRef.current) {
+                editorRef.current.innerHTML = story.chapters?.[0]?.content || '';
+              }
+            }, 100);
           }
         } else {
           alert('Story not found');
@@ -186,6 +236,10 @@ const StoryEditorPage = () => {
     setSelectedChapterContent(chapters[index].content);
     setSelectedChapterIndex(index);
     saveLastLoadedChapter(index);
+    // Update editor content
+    if (editorRef.current) {
+      editorRef.current.innerHTML = chapters[index].content || '';
+    }
   };
 
   const handleTitleInputChange = (e) => {
@@ -200,11 +254,74 @@ const StoryEditorPage = () => {
   };
 
   const handleChapterContentChange = (e) => {
-    const updatedContent = e.target.value;
-    setSelectedChapterContent(updatedContent);
-    const updatedChapters = [...chapters];
-    updatedChapters[selectedChapterIndex].content = updatedContent;
-    setChapters(updatedChapters);
+    // Get content from event target if available, otherwise from editorRef
+    const target = e?.target || editorRef.current;
+    if (!target) return;
+    
+    const updatedContent = target.innerHTML || target.innerText || '';
+    
+    // Only update if we have a valid selectedChapterIndex
+    if (selectedChapterIndex !== null && selectedChapterIndex >= 0 && selectedChapterIndex < chapters.length) {
+      setSelectedChapterContent(updatedContent);
+      const updatedChapters = [...chapters];
+      updatedChapters[selectedChapterIndex].content = updatedContent;
+      setChapters(updatedChapters);
+    }
+  };
+
+  // Update editor content when chapter changes
+  useEffect(() => {
+    if (editorRef.current && selectedChapterContent !== undefined) {
+      const currentContent = editorRef.current.innerHTML;
+      // Only update if content is different to avoid cursor jumping
+      if (selectedChapterContent !== currentContent && 
+          (selectedChapterContent || '') !== (currentContent || '')) {
+        editorRef.current.innerHTML = selectedChapterContent || '';
+      }
+    }
+  }, [selectedChapterIndex]); // Update when switching chapters
+
+  const handleFormatCommand = (command, value = null) => {
+    editorRef.current?.focus();
+    if (command === 'fontName') {
+      // Use styleWithCSS for better font control
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('fontName', false, value);
+    } else {
+      document.execCommand(command, false, value);
+    }
+    // Trigger content change to save
+    if (editorRef.current) {
+      const event = new Event('input', { bubbles: true });
+      editorRef.current.dispatchEvent(event);
+    }
+  };
+
+  const handleFontFamilyChange = (e) => {
+    const font = e.target.value;
+    setFontFamily(font);
+    editorRef.current?.focus();
+    
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && selection.toString()) {
+      // Apply to selected text only
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('fontName', false, font);
+    } else {
+      // Apply to entire editor - wrap all content in a span with the font
+      if (editorRef.current) {
+        const range = document.createRange();
+        range.selectNodeContents(editorRef.current);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('fontName', false, font);
+        sel.removeAllRanges();
+        // Also set as default font for new text
+        editorRef.current.style.fontFamily = font;
+      }
+    }
   };
 
   const saveEditedCharacter = (index) => {
@@ -254,6 +371,12 @@ const StoryEditorPage = () => {
         !moreOptionsRef.current.contains(event.target)
       ) {
         setIsMoreOptionsVisible(false);
+      }
+      if (
+        storyOptionsRef.current &&
+        !storyOptionsRef.current.contains(event.target)
+      ) {
+        setIsStoryOptionsVisible(false);
       }
     }
 
@@ -336,6 +459,7 @@ const StoryEditorPage = () => {
       });
 
       const rawSuggestions = response.choices[0]?.message?.content || '';
+      const reasoning = response.choices[0]?.message?.reasoning || null;
 
       await addMessageToThread(threadId, {
         role: 'user',
@@ -353,6 +477,7 @@ const StoryEditorPage = () => {
       await addMessageToThread(threadId, {
         role: 'ai',
         content: rawSuggestions,
+        reasoning: reasoning,
         createdAt: new Date(),
       });
 
@@ -402,115 +527,104 @@ const StoryEditorPage = () => {
 
   return (
     <div className="p-6 mt-16 flex">
-      {/* Left side: Story Details and Chapters */}
-      <div className="w-1/4 p-4 border mr-4 min-w-[25%] max-w-[33.3%]" style={{ height: "calc(100vh - 120px)", overflowY: "auto", resize: "horizontal" }}>
-        <div className='flex items-center justify-between'>
-          <div className="flex gap-3 items-center">
-            <button
-              type="button"
-              className="bg-blue-600 text-white p-2 rounded shadow"
-              onClick={() => navigate('/stories')}
-              title="Go back to stories"
-            >
-              <FaArrowLeft />
-            </button>
-            <h2 className="text-xl font-bold">Story Details</h2>
-          </div>
-          <button
-            type="submit"
-            className={`bg-green-500 text-white p-3 rounded shadow ${savingStory ? "opacity-50 cursor-not-allowed" : ""}`}
-            onClick={handleSaveStory}
-            disabled={savingStory}
-            title={savingStory ? "Saving..." : "Save story"}
-          >
-            <FaSave />
-          </button>
-        </div>
+      {/* Top Bar with Back and Save */}
+      <div className="fixed top-20 left-0 right-0 z-40 glass-strong border-b border-neon-blue/30 p-4 flex items-center justify-between">
+        <button
+          type="button"
+          className="bg-gradient-to-r from-neon-blue to-neon-purple text-white px-4 py-2 rounded-lg shadow-lg hover:from-cyan-400 hover:to-purple-500 transition-all duration-300 hover:scale-105"
+          onClick={() => navigate('/stories')}
+          title="Go back to stories"
+        >
+          <FaArrowLeft className="inline mr-2" />
+          Back to Stories
+        </button>
+        <h2 className="text-2xl font-bold font-['Orbitron'] gradient-text">{storyDetails.title || 'Untitled Story'}</h2>
+        <button
+          type="submit"
+          className={`bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-lg shadow-lg hover:from-green-400 hover:to-emerald-400 transition-all duration-300 hover:scale-105 ${savingStory ? "opacity-50 cursor-not-allowed" : ""}`}
+          onClick={handleSaveStory}
+          disabled={savingStory}
+          title={savingStory ? "Saving..." : "Save story"}
+        >
+          <FaSave className="inline mr-2" />
+          {savingStory ? "Saving..." : "Save Story"}
+        </button>
+      </div>
 
-        <form>
-          <label className="block mt-2">Title</label>
-          <input
-            type="text"
-            name="title"
-            value={storyDetails.title}
-            onChange={handleInputChange}
-            className="w-full p-2 mt-1 border"
-            placeholder="Story Title"
-          />
-          <label className="block mt-2">Author</label>
-          <input
-            type="text"
-            name="author"
-            value={storyDetails.author}
-            onChange={handleInputChange}
-            className="w-full p-2 mt-1 border"
-            placeholder="Author Name"
-          />
-          <label className="block mt-2">Description</label>
-          <textarea
-            name="description"
-            value={storyDetails.description}
-            onChange={handleInputChange}
-            className="w-full p-2 mt-1 border overflow-y-auto h-48 max-h-48"
-            placeholder="Story Description"
-          />
-          <label className="block mt-2">Date Started</label>
-          <input
-            type="date"
-            name="dateStarted"
-            value={storyDetails.dateStarted}
-            onChange={handleInputChange}
-            className="w-full p-2 mt-1 border"
-          />
-          <label className="block mt-2">Genre</label>
-          <input
-            type="text"
-            name="genre"
-            value={storyDetails.genre}
-            onChange={handleInputChange}
-            className="w-full p-2 mt-1 border"
-            placeholder="Genre"
-          />
-          <label className="block mt-2">Location</label>
-          <input
-            type="text"
-            name="location"
-            value={storyDetails.location}
-            onChange={handleInputChange}
-            className="w-full p-2 mt-1 border"
-            placeholder="Location (e.g., Forest, Space)"
-          />
-        </form>
-
+      {/* Left side: Chapters and Characters */}
+      <div className="w-1/4 p-4 border mr-4 min-w-[25%] max-w-[33.3%] mt-20" style={{ height: "calc(100vh - 180px)", overflowY: "auto", resize: "horizontal" }}>
         {/* Chapters Section */}
         <div className="mt-4">
-          <button onClick={() => toggleSection('chapters')} className="text-blue-500">
+          <button 
+            onClick={() => toggleSection('chapters')} 
+            className="transition-colors duration-300"
+            style={{ color: 'var(--accent-blue)' }}
+            onMouseEnter={(e) => e.target.style.color = 'var(--accent-purple)'}
+            onMouseLeave={(e) => e.target.style.color = 'var(--accent-blue)'}
+          >
             {expandedSections.chapters ? 'Hide Chapters' : 'Show Chapters'}
           </button>
           {expandedSections.chapters && (
             <div className="mt-4">
-              <h3 className="text-lg font-semibold">Chapters</h3>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Chapters</h3>
               {chapters.map((chapter, index) => (
-                <div key={index} className="mt-2 pl-2 border rounded-md flex justify-between items-center" style={{ cursor: "pointer" }} onClick={() => handleChapterClick(index)}>
+                <div 
+                  key={index} 
+                  className="mt-2 pl-2 border rounded-md flex justify-between items-center" 
+                  style={{ 
+                    cursor: "pointer",
+                    borderColor: 'var(--border-primary)',
+                    backgroundColor: 'var(--bg-secondary)'
+                  }} 
+                  onClick={() => handleChapterClick(index)}
+                >
                   {editingChapterIndex === index ? (
                     <input
                       type="text"
                       value={editedChapterTitle}
                       onChange={handleTitleInputChange}
-                      onBlur={() => saveEditedChapterTitle(index)}
-                      className="w-full p-2 mr-2 border rounded-md"
+                      className="w-full p-2 mr-2 border rounded-md focus:outline-none focus:ring-2 transition-all duration-300"
+                      style={{
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        borderColor: 'var(--border-primary)'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = 'var(--accent-blue)';
+                        e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = 'var(--border-primary)';
+                        e.target.style.boxShadow = 'none';
+                        saveEditedChapterTitle(index);
+                      }}
                       placeholder="Chapter Title"
                     />
                   ) : (
-                    <h4 className="font-bold py-2">{chapter.title}</h4>
+                    <h4 className="font-bold py-2" style={{ color: 'var(--text-primary)' }}>{chapter.title}</h4>
                   )}
 
-                  <div className="flex items-end flex-col gap-2 pl-4 bg-slate-50 p-4">
+                  <div 
+                    className="flex items-end flex-col gap-2 pl-4 p-4 rounded-r-md"
+                    style={{ backgroundColor: 'var(--bg-tertiary)' }}
+                  >
                     <div className="flex gap-2">
                       {index > 0 && (
                         <button
-                          onClick={() => moveChapterUp(index)}
-                          className="text-blue-500 hover:text-blue-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveChapterUp(index);
+                          }}
+                          className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                          style={{ color: 'var(--accent-blue)' }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'rgba(37, 99, 235, 0.2)';
+                            e.target.style.color = 'var(--accent-purple)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = 'var(--accent-blue)';
+                          }}
                         >
                           <FaArrowUp />
                         </button>
@@ -518,8 +632,20 @@ const StoryEditorPage = () => {
 
                       {index < chapters.length - 1 && (
                         <button
-                          onClick={() => moveChapterDown(index)}
-                          className="text-blue-500 hover:text-blue-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveChapterDown(index);
+                          }}
+                          className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                          style={{ color: 'var(--accent-blue)' }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'rgba(37, 99, 235, 0.2)';
+                            e.target.style.color = 'var(--accent-purple)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = 'var(--accent-blue)';
+                          }}
                         >
                           <FaArrowDown />
                         </button>
@@ -529,28 +655,60 @@ const StoryEditorPage = () => {
                     <div className="flex gap-2">
                       {editingChapterIndex === index ? (
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             saveEditedChapterTitle(index);
                           }}
-                          className="text-green-500 hover:text-green-700"
+                          className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                          style={{ color: '#10b981' }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+                            e.target.style.color = '#059669';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = '#10b981';
+                          }}
                         >
                           <FaSave />
                         </button>
                       ) : (
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setEditingChapterIndex(index);
                             setEditedChapterTitle(chapter.title);
                           }}
-                          className="text-blue-500 hover:text-blue-700"
+                          className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                          style={{ color: 'var(--accent-blue)' }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'rgba(37, 99, 235, 0.2)';
+                            e.target.style.color = 'var(--accent-purple)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = 'var(--accent-blue)';
+                          }}
                         >
                           <FaEdit />
                         </button>
                       )}
 
                       <button
-                        onClick={() => deleteChapter(index)}
-                        className="text-red-500 hover:text-red-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteChapter(index);
+                        }}
+                        className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                        style={{ color: '#ef4444' }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                          e.target.style.color = '#dc2626';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                          e.target.style.color = '#ef4444';
+                        }}
                       >
                         <FaTrash />
                       </button>
@@ -558,7 +716,20 @@ const StoryEditorPage = () => {
                   </div>
                 </div>
               ))}
-              <button onClick={addChapter} className="bg-green-500 text-white p-2 mt-2">
+              <button 
+                onClick={addChapter} 
+                className="p-2 mt-2 rounded-lg transition-all duration-300 hover:scale-105"
+                style={{ 
+                  backgroundColor: '#10b981',
+                  color: 'white'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#059669';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#10b981';
+                }}
+              >
                 Add Chapter
               </button>
             </div>
@@ -567,35 +738,74 @@ const StoryEditorPage = () => {
 
         {/* Characters Section */}
         <div className="mt-4">
-          <button onClick={() => toggleSection('characters')} className="text-blue-500">
+          <button 
+            onClick={() => toggleSection('characters')} 
+            className="transition-colors duration-300"
+            style={{ color: 'var(--accent-purple)' }}
+            onMouseEnter={(e) => e.target.style.color = 'var(--accent-pink)'}
+            onMouseLeave={(e) => e.target.style.color = 'var(--accent-purple)'}
+          >
             {expandedSections.characters ? 'Hide Characters' : 'Show Characters'}
           </button>
           {expandedSections.characters && (
             <div className="mt-4">
-              <h3 className="text-lg font-semibold">Characters</h3>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Characters</h3>
               {characters.map((character, index) => (
-                <div key={index} className="mt-2 p-2 border rounded-md">
+                <div 
+                  key={index} 
+                  className="mt-2 p-2 border rounded-md"
+                  style={{
+                    borderColor: 'var(--border-primary)',
+                    backgroundColor: 'var(--bg-secondary)'
+                  }}
+                >
                   {editingCharacterIndex === index ? (
                     <>
                       <input
                         type="text"
                         value={editedCharacterName}
                         onChange={(e) => setEditedCharacterName(e.target.value)}
-                        className="w-full p-2 mb-2 border rounded-md"
+                        className="w-full p-2 mb-2 border rounded-md focus:outline-none focus:ring-2 transition-all duration-300"
+                        style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          borderColor: 'var(--border-primary)'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = 'var(--accent-blue)';
+                          e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'var(--border-primary)';
+                          e.target.style.boxShadow = 'none';
+                        }}
                         placeholder="Character Name"
                       />
                       <textarea
                         value={editedCharacterDescription}
                         onChange={(e) => setEditedCharacterDescription(e.target.value)}
-                        className="w-full p-2 border rounded-md max-h-48"
+                        className="w-full p-2 border rounded-md max-h-48 focus:outline-none focus:ring-2 transition-all duration-300"
+                        style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          borderColor: 'var(--border-primary)'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = 'var(--accent-blue)';
+                          e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'var(--border-primary)';
+                          e.target.style.boxShadow = 'none';
+                        }}
                         placeholder="Character Description"
                       />
                     </>
                   ) : (
                     <>
-                      <h4 className="font-bold">{character.name === '' ? "New Character" : character.name}</h4>
+                      <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>{character.name === '' ? "New Character" : character.name}</h4>
                       <p
-                        className="text-gray-600"
+                        style={{ color: 'var(--text-secondary)' }}
                         dangerouslySetInnerHTML={{
                           __html: character.description
                             ? character.description.replace(/\n/g, "<br>")
@@ -608,7 +818,16 @@ const StoryEditorPage = () => {
                     {editingCharacterIndex === index ? (
                       <button
                         onClick={() => saveEditedCharacter(index)}
-                        className="text-green-500 hover:text-green-700"
+                        className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                        style={{ color: '#10b981' }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+                          e.target.style.color = '#059669';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                          e.target.style.color = '#10b981';
+                        }}
                       >
                         <FaSave />
                       </button>
@@ -619,14 +838,32 @@ const StoryEditorPage = () => {
                           setEditedCharacterName(character.name);
                           setEditedCharacterDescription(character.description || '');
                         }}
-                        className="text-blue-500 hover:text-blue-700"
+                        className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                        style={{ color: 'var(--accent-purple)' }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = 'rgba(124, 58, 237, 0.2)';
+                          e.target.style.color = 'var(--accent-pink)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                          e.target.style.color = 'var(--accent-purple)';
+                        }}
                       >
                         <FaEdit />
                       </button>
                     )}
                     <button
                       onClick={() => deleteCharacter(index)}
-                      className="text-red-500 hover:text-red-700"
+                      className="transition-colors duration-300 p-1 rounded hover:bg-opacity-20"
+                      style={{ color: '#ef4444' }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                        e.target.style.color = '#dc2626';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = '#ef4444';
+                      }}
                     >
                       <FaTrash />
                     </button>
@@ -635,7 +872,17 @@ const StoryEditorPage = () => {
               ))}
               <button
                 onClick={addCharacter}
-                className="bg-green-500 text-white p-2 mt-2 w-full rounded"
+                className="p-2 mt-2 w-full rounded-lg transition-all duration-300 hover:scale-105"
+                style={{ 
+                  backgroundColor: 'var(--accent-purple)',
+                  color: 'white'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = 'var(--accent-pink)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'var(--accent-purple)';
+                }}
               >
                 Add Character
               </button>
@@ -644,82 +891,414 @@ const StoryEditorPage = () => {
         </div>
       </div>
 
-      <div className="w-[calc(100%-33.3%)] p-4 border" style={{ resize: "horizontal" }}>
-        <h2 className="text-xl font-bold">{selectedChapterTitle}</h2>
-        <textarea
-          value={selectedChapterContent}
-          onChange={handleChapterContentChange}
-          className="w-full h-96 p-2 mt-1 border resize-none"
-          placeholder="Write your story here..."
-          style={{ height: "calc(100vh - 200px)", overflowY: "auto" }}
-        />
+      <div className="w-[calc(100%-33.3%)] p-4 border mt-20" style={{ resize: "horizontal" }}>
+        <h2 className="text-2xl font-bold mb-4 font-['Orbitron'] gradient-text">{selectedChapterTitle || 'Chapter'}</h2>
+        
+        {/* Formatting Toolbar */}
+        <div className="glass p-3 rounded-t-lg border border-b-0 flex items-center gap-2 flex-wrap" style={{ borderColor: 'var(--border-primary)' }}>
+          <button
+            type="button"
+            onClick={() => handleFormatCommand('bold')}
+            className="p-2 rounded-lg transition-all duration-300 hover:scale-105"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderColor: 'var(--border-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = 'var(--bg-tertiary)';
+              e.target.style.borderColor = 'var(--accent-blue)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = 'var(--bg-secondary)';
+              e.target.style.borderColor = 'var(--border-primary)';
+            }}
+            title="Bold"
+          >
+            <FaBold />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFormatCommand('italic')}
+            className="p-2 rounded-lg transition-all duration-300 hover:scale-105"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderColor: 'var(--border-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = 'var(--bg-tertiary)';
+              e.target.style.borderColor = 'var(--accent-blue)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = 'var(--bg-secondary)';
+              e.target.style.borderColor = 'var(--border-primary)';
+            }}
+            title="Italic"
+          >
+            <FaItalic />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFormatCommand('underline')}
+            className="p-2 rounded-lg transition-all duration-300 hover:scale-105"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderColor: 'var(--border-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = 'var(--bg-tertiary)';
+              e.target.style.borderColor = 'var(--accent-blue)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = 'var(--bg-secondary)';
+              e.target.style.borderColor = 'var(--border-primary)';
+            }}
+            title="Underline"
+          >
+            <FaUnderline />
+          </button>
+          <div className="w-px h-6 mx-1" style={{ backgroundColor: 'var(--border-primary)' }}></div>
+          <select
+            value={fontFamily}
+            onChange={handleFontFamilyChange}
+            className="p-2 rounded-lg focus:outline-none focus:ring-2 transition-all duration-300"
+            title="Font Family"
+            style={{ 
+              fontFamily: fontFamily,
+              backgroundColor: 'var(--bg-secondary)',
+              borderColor: 'var(--border-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = 'var(--accent-blue)';
+              e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = 'var(--border-primary)';
+              e.target.style.boxShadow = 'none';
+            }}
+          >
+            <option value="sans-serif" style={{ fontFamily: 'sans-serif', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>Sans Serif</option>
+            <option value="serif" style={{ fontFamily: 'serif', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>Serif</option>
+            <option value="monospace" style={{ fontFamily: 'monospace', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>Monospace</option>
+          </select>
+        </div>
+
+        {/* Content Editable Editor */}
+        <div
+          ref={editorRef}
+          contentEditable
+          onInput={handleChapterContentChange}
+          className="w-full p-4 border rounded-b-lg resize-none focus:outline-none focus:ring-2 transition-all duration-300"
+          style={{ 
+            height: "calc(100vh - 340px)", 
+            overflowY: "auto",
+            fontFamily: fontFamily,
+            minHeight: '200px',
+            lineHeight: '1.6',
+            backgroundColor: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            borderColor: 'var(--border-primary)'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = 'var(--accent-blue)';
+            e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = 'var(--border-primary)';
+            e.target.style.boxShadow = 'none';
+            handleChapterContentChange();
+          }}
+          data-placeholder="Write your story here..."
+          suppressContentEditableWarning={true}
+        >
+        </div>
       </div>
 
+      {/* Story Options Button */}
+      <button
+        onClick={() => setIsStoryOptionsVisible(!isStoryOptionsVisible)}
+        className={`fixed rounded-full p-5 shadow-lg transition-all duration-300 hover:scale-110 text-3xl ${
+          isStoryOptionsVisible 
+            ? "bottom-[calc(100vh-8rem)] right-4 bg-gradient-to-r from-purple-600 to-pink-600" 
+            : "bottom-24 right-4 bg-gradient-to-r from-neon-purple to-neon-pink hover:from-purple-500 hover:to-pink-500"
+        }`}
+        style={{ zIndex: 1000 }}
+        title="Story Options"
+      >
+        <FaCog />
+      </button>
+
+      {/* Chat Button */}
       <button
         onClick={() => setIsChatVisible(!isChatVisible)}
-        className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full p-5 shadow-lg hover:bg-blue-600 transition ease-in-out text-3xl"
+        className={`fixed rounded-full p-5 shadow-lg transition-all duration-300 hover:scale-110 text-3xl ${
+          isStoryOptionsVisible
+            ? "bottom-4 right-[28rem] bg-gradient-to-r from-neon-blue to-neon-purple hover:from-cyan-400 hover:to-purple-500"
+            : "bottom-4 right-4 bg-gradient-to-r from-neon-blue to-neon-purple hover:from-cyan-400 hover:to-purple-500"
+        }`}
         style={{ zIndex: 1000 }}
         title="Chat with AIPSBot!"
       >
         <FaComments />
       </button>
 
+      {/* Story Options Panel */}
+      {isStoryOptionsVisible && (
+        <div
+          className="fixed bottom-24 right-24 w-96 glass-strong rounded-xl shadow-2xl border border-neon-purple/30 overflow-hidden"
+          style={{ height: "calc(100vh - 8rem)", zIndex: 998 }}
+          ref={storyOptionsRef}
+        >
+          <div className="flex justify-between items-center bg-gradient-to-r from-neon-purple to-neon-pink text-white px-5 py-3">
+            <h2 className="text-lg font-bold font-['Orbitron']">Story Options</h2>
+            <button
+              onClick={() => setIsStoryOptionsVisible(false)}
+              className="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-300 hover:scale-105"
+            >
+              <FaTimes size={18} />
+            </button>
+          </div>
+          <div className="p-6 overflow-y-auto" style={{ height: "calc(100% - 60px)" }}>
+            <form className="space-y-4">
+              <div>
+                <label className="block mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={storyDetails.title}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-300"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-blue)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-primary)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Story Title"
+                />
+              </div>
+              <div>
+                <label className="block mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Author</label>
+                <input
+                  type="text"
+                  name="author"
+                  value={storyDetails.author}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-300"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-blue)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-primary)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Author Name"
+                />
+              </div>
+              <div>
+                <label className="block mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Description</label>
+                <textarea
+                  name="description"
+                  value={storyDetails.description}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-300 resize-none min-h-32"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-blue)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-primary)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Story Description"
+                />
+              </div>
+              <div>
+                <label className="block mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Date Started</label>
+                <input
+                  type="date"
+                  name="dateStarted"
+                  value={storyDetails.dateStarted}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-300"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-blue)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-primary)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Genre</label>
+                <input
+                  type="text"
+                  name="genre"
+                  value={storyDetails.genre}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-300"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-blue)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-primary)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Genre"
+                />
+              </div>
+              <div>
+                <label className="block mb-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={storyDetails.location}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-300"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-blue)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-primary)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Location (e.g., Forest, Space)"
+                />
+              </div>
+              <div className="flex items-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  name="isPublic"
+                  checked={storyDetails.isPublic || false}
+                  onChange={(e) => setStoryDetails(prev => ({ ...prev, isPublic: e.target.checked }))}
+                  className="w-5 h-5 cursor-pointer mr-3"
+                  style={{ accentColor: 'var(--accent-blue)' }}
+                />
+                <label htmlFor="isPublic" className="cursor-pointer flex-1" style={{ color: 'var(--text-primary)' }}>
+                  Make this story public (others can read it)
+                </label>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isChatVisible &&
         (
           <div
             id="chat-with-aipsbot"
-            className="w-1/3 border ml-4 fixed bottom-0 right-24 bg-white rounded-lg shadow-lg flex flex-col"
-            style={{ height: "calc(100vh - 4.3rem)", overflowY: "auto", zIndex: 999 }}>
-            <div className="flex justify-between items-center bg-blue-600 text-white px-4 py-2 rounded-t-lg">
-              <h2 className="text-lg font-bold">Chat with AIPSBot</h2>
+            className={`w-1/3 border border-neon-blue/30 fixed bottom-0 glass-strong rounded-xl shadow-2xl flex flex-col overflow-hidden ${
+              isStoryOptionsVisible ? "right-[28rem]" : "right-24 ml-4"
+            }`}
+            style={{ height: "calc(100vh - 4.3rem)", zIndex: 999 }}>
+            <div className="flex justify-between items-center bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white px-5 py-3 rounded-t-xl shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <span className="text-sm">🤖</span>
+                </div>
+                <h2 className="text-lg font-bold font-['Orbitron']">Chat with AIPSBot</h2>
+              </div>
               <div className="flex items-center gap-2">
                 {aiThreadId != null && <button
                   onClick={() => deleteAIThread(aiThreadId, id)}
-                  className="text-white ml-auto bg-red-500 hover:bg-red-700 px-2 py-2 rounded"
+                  className="text-white bg-red-500/80 hover:bg-red-600 px-3 py-2 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-red-500/50"
                   title="Delete thread"
                 >
-                  <FaTrash />
+                  <FaTrash size={14} />
                 </button>}
                 <button
                   onClick={() => setIsChatVisible(false)}
-                  className="text-white hover:text-gray-300"
+                  className="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-300 hover:scale-105"
                 >
-                  <FaTimes size={20} />
+                  <FaTimes size={18} />
                 </button>
               </div>
             </div>
 
-            <div className="mt-0 bg-gray-100">
+            <div className="bg-gradient-to-b from-cyber-darker to-black flex-1 overflow-hidden flex flex-col">
               <AIThreadViewer threadId={aiThreadId} refreshThread={refreshThread} />
             </div>
 
             {/* User Query Input for AI Suggestions */}
-            <div className="relative">
-              <textarea
-                value={suggestionQuery}
-                onChange={handleQueryChange}
-                className="w-[86%] resize-none p-4 min-h-28 focus:outline-none flex-1"
-                placeholder="Ask me for help! (e.g., plot ideas, character names)"
-              />
-              <div className='absolute bottom-2 right-2 flex gap-2 flex-col'>
-                <button
-                  onClick={() => setIsMoreOptionsVisible(!isMoreOptionsVisible)}
-                  className={`bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2`}>
-                  <FaBars />
-                </button>
-                <button
-                  onClick={requestAISuggestions}
-                  className={`bg-blue-500 text-white px-4 py-2 rounded mr-2 mb-2 ${loading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
-                  disabled={loading}
-                  title={loading ? 'AIPSBot is thinking...' : ''}
-                >
-                  {loading ? <FaLightbulb /> : <FaPaperPlane />}
-                </button>
+            <div className="relative border-t border-neon-blue/30 bg-black p-4">
+              <div className="relative">
+                <textarea
+                  value={suggestionQuery}
+                  onChange={handleQueryChange}
+                  className="w-full resize-none p-4 min-h-28 focus:outline-none bg-cyber-blue/50 text-white border border-neon-blue/30 rounded-lg focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 placeholder-gray-500"
+                  placeholder="Ask me for help! (e.g., plot ideas, character names, story suggestions...)"
+                  style={{ paddingRight: '100px' }}
+                />
+                <div className='absolute bottom-4 right-4 flex gap-2'>
+                  <button
+                    onClick={() => setIsMoreOptionsVisible(!isMoreOptionsVisible)}
+                    className={`bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:from-green-400 hover:to-emerald-400 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/50 ${isMoreOptionsVisible ? 'ring-2 ring-green-400' : ''}`}
+                    title="More options"
+                  >
+                    <FaBars />
+                  </button>
+                  <button
+                    onClick={requestAISuggestions}
+                    className={`bg-gradient-to-r from-neon-blue to-neon-purple text-white px-4 py-2 rounded-lg hover:from-cyan-400 hover:to-purple-500 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-neon-blue/50 ${loading ? "opacity-50 cursor-not-allowed animate-pulse" : ""}`}
+                    disabled={loading}
+                    title={loading ? 'AIPSBot is thinking...' : 'Send message'}
+                  >
+                    {loading ? <FaLightbulb className="animate-pulse" /> : <FaPaperPlane />}
+                  </button>
+                </div>
               </div>
 
               {/* Error Display */}
-              {error && <p className="text-red-500 mt-2">{error}</p>}
+              {error && (
+                <div className="mt-3 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
             </div>
           </div>
         )
@@ -727,41 +1306,43 @@ const StoryEditorPage = () => {
 
       {isMoreOptionsVisible && (
         <div
-          className="p-4 fixed bottom-4 right-44 bg-slate-100 rounded-lg shadow-lg"
+          className={`p-4 fixed glass-strong rounded-lg shadow-2xl border border-neon-blue/30 ${
+            isStoryOptionsVisible ? "bottom-4 right-[32rem]" : "bottom-4 right-44"
+          }`}
           style={{ zIndex: 1000 }}
           ref={moreOptionsRef}>
-          <p className='mb-2 italic'>Hint: Hover on the info icon to know more.</p>
+          <p className='mb-2 italic text-gray-300'>Hint: Hover on the info icon to know more.</p>
           <div className="flex items-center mb-2">
             <input
               type="checkbox"
               id="include-main-details"
-              className="mr-2"
+              className="mr-2 accent-neon-blue"
               checked={includeMainDetails}
               onChange={handleCheckboxChange(setIncludeMainDetails)}
             />
-            <label htmlFor="include-main-details">Include main story details</label>
+            <label htmlFor="include-main-details" className="text-gray-300">Include main story details</label>
             <FaInfo
-              className='text-lg ml-1 rounded-full bg-slate-300 p-[3px]'
+              className='text-lg ml-1 rounded-full bg-neon-blue/30 text-neon-blue p-[3px]'
               title="Includes main story details like the title. description, setting, and genre to the prompt"
             />
           </div>
           <div className="flex items-center mb-2">
-            <input type="checkbox" id="include-characters" className="mr-2"
+            <input type="checkbox" id="include-characters" className="mr-2 accent-neon-blue"
               checked={includeCharacters}
               onChange={handleCheckboxChange(setIncludeCharacters)} />
-            <label htmlFor="include-characters">Include current characters</label>
+            <label htmlFor="include-characters" className="text-gray-300">Include current characters</label>
             <FaInfo
-              className='text-lg ml-1 rounded-full bg-slate-300 p-[3px]'
+              className='text-lg ml-1 rounded-full bg-neon-blue/30 text-neon-blue p-[3px]'
               title="Includes the current characters (if you listed them in the characters section) to the prompt"
             />
           </div>
           <div className="flex items-center">
-            <input type="checkbox" id="include-chapters" className="mr-2"
+            <input type="checkbox" id="include-chapters" className="mr-2 accent-neon-blue"
               checked={includeChapters}
               onChange={handleCheckboxChange(setIncludeChapters)} />
-            <label htmlFor="include-chapters">Look back to previous chapters</label>
+            <label htmlFor="include-chapters" className="text-gray-300">Look back to previous chapters</label>
             <FaInfo
-              className='text-lg ml-1 rounded-full bg-slate-300 p-[3px]'
+              className='text-lg ml-1 rounded-full bg-neon-blue/30 text-neon-blue p-[3px]'
               title="Includes all the previous chapters to the prompt"
             />
           </div>

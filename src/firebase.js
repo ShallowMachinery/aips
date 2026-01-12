@@ -94,6 +94,21 @@ export const getUserStories = async (userId) => {
   return stories;
 };
 
+export const getPublicStories = async () => {
+  try {
+    const q = query(collection(db, "stories"), where("isPublic", "==", true));
+    const querySnapshot = await getDocs(q);
+    const stories = [];
+    querySnapshot.forEach((doc) => {
+      stories.push({ id: doc.id, ...doc.data() });
+    });
+    return stories;
+  } catch (error) {
+    console.error("Error fetching public stories:", error);
+    throw new Error("Failed to fetch public stories");
+  }
+};
+
 export const getCharactersByStory = async (storyId) => {
   try {
     const storyRef = doc(db, "stories", storyId);

@@ -203,36 +203,60 @@ const CharacterLibrary = () => {
     }
 
     return (
-        <div className="container mx-auto p-4 mt-20">
-            <h1 className="text-3xl font-bold mb-3">Stories</h1>
-            {stories.map((story) => (
-                <div key={story.id} className="bg-white shadow-md rounded mb-4">
-                    <div
-                        className="flex items-center justify-between p-4 cursor-pointer"
-                        onClick={() => toggleExpand(story.id)}
-                    >
-                        <h2 className="text-lg font-semibold">{story.title}</h2>
-                        <div className="flex gap-4 items-center">
-                            <button className="p-2 bg-cyan-500 text-white rounded-lg" onClick={() => window.open(`/story/edit/${story.id}`, '_blank')}>Edit</button>
-                            <span>{expandedStoryId === story.id ? '[-]' : '[+]'}</span>
-                        </div>
-                    </div>
+        <div className="container mx-auto p-10 mt-20 min-h-screen relative overflow-hidden">
+            {/* Animated background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-20 right-10 w-96 h-96 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-neon"></div>
+                <div className="absolute bottom-20 left-10 w-80 h-80 bg-neon-pink/5 rounded-full blur-3xl animate-pulse-neon" style={{animationDelay: '1s'}}></div>
+            </div>
 
-                    {expandedStoryId === story.id && (
-                        <div>
-                            {story.characters.length > 0 ? (
-                                <div className="p-4 border-t">
-                                    <h3 className="text-md font-semibold mb-4">Characters:</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {story.characters.map((character, index) => (
-                                            <div
-                                                key={index}
-                                                className="bg-gray-100 shadow-sm rounded-lg p-4"
-                                            >
-                                                <div>
-                                                    <h4 className="text-lg font-semibold mb-2">{character.name === '' ? "New Character" : character.name}</h4>
+            <div className="relative z-10">
+                <h1 className="text-5xl font-bold mb-8 font-['Orbitron'] gradient-text animate-slide-up">Character Library</h1>
+                {stories.map((story, storyIndex) => (
+                    <div key={story.id} className="glass rounded-xl mb-6 border border-neon-purple/20 hover:border-neon-purple/50 transition-all duration-300 overflow-hidden animate-slide-up" style={{animationDelay: `${storyIndex * 0.1}s`}}>
+                        <div
+                            className="flex items-center justify-between p-6 cursor-pointer hover:bg-cyber-blue/30 transition-colors duration-300"
+                            onClick={() => toggleExpand(story.id)}
+                        >
+                            <h2 className="text-2xl font-semibold text-white font-['Orbitron']">{story.title}</h2>
+                            <div className="flex gap-4 items-center">
+                                <button 
+                                    className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/50"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(`/story/edit/${story.id}`, '_blank');
+                                    }}
+                                >
+                                    Edit
+                                </button>
+                                <span className="text-neon-purple text-xl font-bold">{expandedStoryId === story.id ? '−' : '+'}</span>
+                            </div>
+                        </div>
+
+                        {expandedStoryId === story.id && (
+                            <div className="p-6 border-t border-neon-purple/20">
+                                {story.characters.length > 0 ? (
+                                    <div className="mb-6">
+                                        <h3 className="text-2xl font-semibold mb-6 text-neon-purple font-['Orbitron']">Characters:</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {story.characters.map((character, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="glass p-5 rounded-lg border border-neon-blue/20 hover:border-neon-blue/50 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-neon-blue/20"
+                                                >
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <h4 className="text-xl font-bold text-neon-blue font-['Orbitron']">
+                                                            {character.name === '' ? "New Character" : character.name}
+                                                        </h4>
+                                                        <button
+                                                            className="text-red-400 hover:text-red-300 transition-colors duration-300"
+                                                            onClick={() => deleteCharacterFromStory(story.id, index)}
+                                                        >
+                                                            <FaTrash />
+                                                        </button>
+                                                    </div>
                                                     <p
-                                                        className="text-sm text-gray-700"
+                                                        className="text-sm text-gray-300 leading-relaxed"
                                                         dangerouslySetInnerHTML={{
                                                             __html: character.description
                                                                 ? character.description.replace(/\n/g, "<br>")
@@ -240,71 +264,70 @@ const CharacterLibrary = () => {
                                                         }}
                                                     ></p>
                                                 </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mb-6 p-6 glass rounded-lg border border-neon-purple/20">
+                                        <h3 className="text-lg text-gray-400 text-center">There are no characters for this story.</h3>
+                                    </div>
+                                )}
 
-                                                <div className="bottom-0">
-                                                    <button
-                                                        className="top-2 right-2 text-red-500"
-                                                        onClick={() => deleteCharacterFromStory(story.id, index)}
-                                                    >Delete</button>
-                                                </div>
-                                            </div>
-                                        ))}
+                                <div className="glass-strong p-6 rounded-lg border border-neon-blue/30">
+                                    <h3 className="text-2xl font-semibold mb-6 text-neon-blue font-['Orbitron']">Add a Character:</h3>
+                                    <div className="flex flex-col gap-4">
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formState[story.id]?.name || ""}
+                                            onChange={(e) => handleInputChange(e, story.id)}
+                                            placeholder="Character Name"
+                                            className="p-3 bg-cyber-blue/50 border border-neon-blue/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300"
+                                        />
+                                        <select
+                                            name="gender"
+                                            value={formState[story.id]?.gender || "Male"}
+                                            onChange={(e) => handleInputChange(e, story.id)}
+                                            className="p-3 bg-cyber-blue/50 border border-neon-blue/30 rounded-lg text-white focus:outline-none focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300"
+                                        >
+                                            <option value="Male" className="bg-cyber-blue">Male</option>
+                                            <option value="Female" className="bg-cyber-blue">Female</option>
+                                            <option value="Other" className="bg-cyber-blue">Other</option>
+                                        </select>
+                                        <textarea
+                                            name="description"
+                                            value={formState[story.id]?.description || ""}
+                                            onChange={(e) => handleInputChange(e, story.id)}
+                                            placeholder="Short description"
+                                            className="p-3 bg-cyber-blue/50 border border-neon-blue/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 resize-none min-h-24"
+                                        ></textarea>
+                                        <button
+                                            className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:from-green-400 hover:to-emerald-400 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            onClick={() => onGenerateCharacter(story, story.id)}
+                                            disabled={isGenerating}
+                                        >
+                                            {isGenerating ? (
+                                                <span className="flex items-center justify-center gap-2">
+                                                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                                                    Generating...
+                                                </span>
+                                            ) : (
+                                                '✨ Generate with AI'
+                                            )}
+                                        </button>
+                                        <button
+                                            className="p-3 bg-gradient-to-r from-neon-blue to-neon-purple text-white rounded-lg font-semibold hover:from-cyan-400 hover:to-purple-500 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-neon-blue/50"
+                                            onClick={() => addCharacterToStory(story.id)}
+                                        >
+                                            Add Character to Story
+                                        </button>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="p-4 border-t">
-                                    <h3 className="text-md mb-4">There are no characters for this story.</h3>
-                                </div>
-                            )}
-
-                            <div className="p-4 border-t">
-                                <h3 className="text-md font-semibold mb-4">Add a Character:</h3>
-                                <div className="flex flex-col gap-4">
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={formState[story.id]?.name || ""}
-                                        onChange={(e) => handleInputChange(e, story.id)}
-                                        placeholder="Name"
-                                        className="p-2 border rounded"
-                                    />
-                                    <select
-                                        name="gender"
-                                        value={formState[story.id]?.gender || "Male"}
-                                        onChange={(e) => handleInputChange(e, story.id)}
-                                        className="p-2 border rounded"
-                                    >
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                    <textarea
-                                        name="description"
-                                        value={formState[story.id]?.description || ""}
-                                        onChange={(e) => handleInputChange(e, story.id)}
-                                        placeholder="Short description"
-                                        className="p-2 border rounded"
-                                    ></textarea>
-                                    <button
-                                        className="p-2 bg-green-500 text-white rounded"
-                                        onClick={() => onGenerateCharacter(story, story.id)}
-                                        disabled={isGenerating}
-                                    >
-                                        {isGenerating ? "Generating..." : "Generate with AI"}
-                                    </button>
-                                    <button
-                                        className="p-2 bg-blue-500 text-white rounded"
-                                        onClick={() => addCharacterToStory(story.id)}
-                                    >
-                                        Add Character to Story
-                                    </button>
-                                </div>
                             </div>
-                        </div>
-                    )}
-
-                </div>
-            ))}
+                        )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

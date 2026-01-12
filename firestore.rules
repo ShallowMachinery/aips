@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection: Users can read and write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Stories collection: Users can read, create, update, and delete their own stories
+    // Public stories can be read by anyone (logged in or not)
+    match /stories/{storyId} {
+      // Allow reading if story is public OR if user owns the story
+      allow read: if resource.data.isPublic == true || 
+                     (request.auth != null && resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Threads collection: Users can read, create, update, and delete their own threads
+    match /threads/{threadId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+  }
+}
+

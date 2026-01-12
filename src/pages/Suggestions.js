@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Groq from 'groq-sdk';
 import { useNavigate } from 'react-router-dom';
-import { addStory } from '../firebase';
+import { addStory, getUserData } from '../firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const groq = new Groq({ apiKey: process.env.REACT_APP_GROQCLOUD_API_KEY, dangerouslyAllowBrowser: true });
@@ -72,9 +72,21 @@ const Suggestions = () => {
 
   const handleCreateNewStory = async (suggestion) => {
     try {
+      // Get user data to set author name
+      let authorName = user.email || 'Unknown Author';
+      try {
+        const userData = await getUserData(user.uid);
+        if (userData && userData.firstName && userData.lastName) {
+          authorName = `${userData.firstName} ${userData.lastName}`;
+        }
+      } catch (err) {
+        console.log('Could not fetch user data, using email as author');
+      }
+
       const newStory = {
         title: suggestion.title,
         description: suggestion.description,
+        author: authorName,
         chapters: [{ title: 'Prologue', content: '' }],
         characters: [],
         userId: user.uid,
@@ -90,40 +102,67 @@ const Suggestions = () => {
   };
 
   return (
-    <div className="p-10 mt-16">
-      <h1 className="text-2xl font-bold">Create with AIPS!</h1>
-      <textarea
-        value={storyText}
-        onChange={(e) => setStoryText(e.target.value)}
-        className="w-full h-40 p-2 border mt-4"
-        placeholder="Start writing your prompt here..."
-      ></textarea>
-      <button
-        onClick={fetchAISuggestions}
-        className="bg-blue-500 text-white p-2 mt-4"
-        disabled={loading}
-      >
-        {loading ? 'AIPS is thinking...' : 'Send!'}
-      </button>
-      <div className="mt-4">
-        <h2 className="font-bold">AIPS:</h2>
-        {error && <p className="text-red-500">{error}</p>}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-          {aiSuggestions.map((suggestion, index) => (
-            <div
-              key={index}
-              className="border rounded-lg shadow-md p-4 bg-gray-50"
-            >
-              <h3 className="text-lg font-bold mb-2">{suggestion.title}</h3>
-              <p>{suggestion.description}</p>
-              <button
-                onClick={() => handleCreateNewStory(suggestion)}
-                className="bg-green-500 text-white p-2 mt-2 w-full"
-              >
-                Create New Story
-              </button>
+    <div className="p-10 mt-20 min-h-screen relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-neon-blue/10 rounded-full blur-3xl animate-pulse-neon"></div>
+        <div className="absolute bottom-20 right-10 w-80 h-80 bg-neon-purple/10 rounded-full blur-3xl animate-pulse-neon" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-72 h-72 bg-neon-pink/10 rounded-full blur-3xl animate-pulse-neon" style={{animationDelay: '2s'}}></div>
+      </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto">
+        <h1 className="text-5xl font-bold mb-8 font-['Orbitron'] gradient-text text-center animate-fade-in">Create with AIPS!</h1>
+        
+        <div className="glass-strong p-8 rounded-xl border border-neon-blue/30 shadow-2xl mb-8 animate-slide-up">
+          <textarea
+            value={storyText}
+            onChange={(e) => setStoryText(e.target.value)}
+            className="w-full h-40 p-4 bg-cyber-blue/50 border border-neon-blue/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 resize-none"
+            placeholder="Start writing your prompt here... Let AIPS inspire your creativity!"
+          ></textarea>
+          <button
+            onClick={fetchAISuggestions}
+            className="mt-4 w-full bg-gradient-to-r from-neon-blue to-neon-purple text-white p-4 rounded-lg font-semibold hover:from-cyan-400 hover:to-purple-500 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-neon-blue/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            disabled={loading}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                AIPS is thinking...
+              </span>
+            ) : (
+              '✨ Send to AIPS! ✨'
+            )}
+          </button>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-3xl font-bold mb-6 font-['Orbitron'] gradient-text">AIPS Suggestions:</h2>
+          {error && (
+            <div className="glass p-4 rounded-xl border border-red-500/30 mb-6">
+              <p className="text-red-400">{error}</p>
             </div>
-          ))}
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {aiSuggestions.map((suggestion, index) => (
+              <div
+                key={index}
+                className="glass p-6 rounded-xl border border-neon-purple/20 hover:border-neon-purple/50 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-neon-purple/20 group animate-slide-up"
+                style={{animationDelay: `${index * 0.1}s`}}
+              >
+                <h3 className="text-xl font-bold mb-3 text-neon-purple font-['Orbitron'] group-hover:text-neon-pink transition-colors duration-300">
+                  {suggestion.title}
+                </h3>
+                <p className="text-gray-300 mb-4 leading-relaxed">{suggestion.description}</p>
+                <button
+                  onClick={() => handleCreateNewStory(suggestion)}
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white p-3 rounded-lg font-semibold hover:from-green-400 hover:to-emerald-400 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/50"
+                >
+                  Create New Story
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
